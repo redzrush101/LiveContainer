@@ -133,39 +133,21 @@ struct LCCustomSortView: View {
     }
     
     private func getSortedByCustomOrder(_ appList: [LCAppModel]) -> [LCAppModel] {
-        if sharedModel.customSortOrder.isEmpty {
-            return appList.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
-        }
-        
-        var sortedApps: [LCAppModel] = []
-        var remainingApps = appList
-        
-        for bundleId in sharedModel.customSortOrder {
-            if let index = remainingApps.firstIndex(where: { $0.appInfo.bundleIdentifier() == bundleId }) {
-                sortedApps.append(remainingApps.remove(at: index))
-            }
-        }
-        
-        remainingApps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
-        sortedApps.append(contentsOf: remainingApps)
-        
-        return sortedApps
+        return LCAppSortManager.getSortedApps(appList, sortType: .custom, customSortOrder: sharedModel.customSortOrder)
     }
     
     private func updateCustomSortOrder() {
         var newOrder: [String] = []
         
-        // 添加普通应用的顺序
         for app in apps {
-            if let bundleId = app.appInfo.bundleIdentifier() {
-                newOrder.append(bundleId)
+            if let uniqueId = LCAppSortManager.getUniqueIdentifier(for: app) {
+                newOrder.append(uniqueId)
             }
         }
         
-        // 添加隐藏应用的顺序
         for app in hiddenApps {
-            if let bundleId = app.appInfo.bundleIdentifier() {
-                newOrder.append(bundleId)
+            if let uniqueId = LCAppSortManager.getUniqueIdentifier(for: app) {
+                newOrder.append(uniqueId)
             }
         }
         

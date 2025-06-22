@@ -821,6 +821,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             sharedModel.hiddenApps.removeAll { now in
                 return app == now
             }
+            sharedModel.cleanupCustomSortOrder()
         }
     }
     
