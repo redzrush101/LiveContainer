@@ -74,26 +74,41 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     @State private var helpPresent = false
     
+    @State private var customSortViewPresent = false
+    @State private var selectedSortType: AppSortType = .alphabetical
+    
     @EnvironmentObject private var sharedModel : SharedModel
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     
     @ObservedObject var searchContext = SearchContext()
+    
+    var sortedApps: [LCAppModel] {
+        return sharedModel.apps
+    }
+    
+    var sortedHiddenApps: [LCAppModel] {
+        return sharedModel.hiddenApps
+    }
+    
     var filteredApps: [LCAppModel] {
+        let apps = sortedApps
         if searchContext.debouncedQuery.isEmpty {
-            sharedModel.apps
+            return apps
         } else {
-            sharedModel.apps.filter { app in
+            return apps.filter { app in
                 app.appInfo.displayName().localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
                 app.appInfo.bundleIdentifier()!.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
             }
         }
     }
+    
     var filteredHiddenApps: [LCAppModel] {
+        let apps = sortedHiddenApps
         if searchContext.debouncedQuery.isEmpty || !sharedModel.isHiddenAppUnlocked {
-            sharedModel.hiddenApps
+            return apps
         } else {
-            sharedModel.hiddenApps.filter { app in
+            return apps.filter { app in
                 app.appInfo.displayName().localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
                 app.appInfo.bundleIdentifier()!.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
             }
@@ -121,11 +136,14 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     ForEach(filteredApps, id: \.self) { app in
                         LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
                     }
+                    .onMove(perform: sharedModel.appSortType == .custom && searchContext.debouncedQuery.isEmpty ? { source, destination in
+                        sharedModel.moveAppInCustomSort(from: source, to: destination, isHidden: false)
+                    } : nil)
                     .transition(.scale)
-                    
                 }
                 .padding()
                 .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredApps)
+                .animation(.easeInOut, value: sharedModel.appSortType)
 
                 VStack {
                     if LCUtils.appGroupUserDefault.bool(forKey: "LCStrictHiding") {
@@ -136,13 +154,26 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                                         .font(.system(.title2).bold())
                                     Spacer()
                                 }
-                                ForEach(filteredHiddenApps, id: \.self) { app in
-                                    LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
+                                
+                                if sharedModel.appSortType == .custom && searchContext.debouncedQuery.isEmpty {
+                                    ForEach(filteredHiddenApps, id: \.self) { app in
+                                        LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
+                                    }
+                                    .onMove { source, destination in
+                                        sharedModel.moveAppInCustomSort(from: source, to: destination, isHidden: true)
+                                    }
+                                    .transition(.scale)
+                                } else {
+                                    ForEach(filteredHiddenApps, id: \.self) { app in
+                                        LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
+                                    }
+                                    .transition(.scale)
                                 }
                             }
                             .padding()
                             .transition(.opacity)
-                            .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredApps)
+                            .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredHiddenApps)
+                            .animation(.easeInOut, value: sharedModel.appSortType)
                             
                             if sharedModel.hiddenApps.count == 0 {
                                 Text("lc.appList.hideAppTip".loc)
@@ -169,7 +200,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                             }
                         }
                         .padding()
-                        .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredApps)
+                        .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredHiddenApps)
+                        .animation(.easeInOut, value: sharedModel.appSortType)
                     }
 
                     let appCount = sharedModel.isHiddenAppUnlocked ? filteredApps.count + filteredHiddenApps.count : filteredApps.count
@@ -193,6 +225,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 if !didAppear {
                     onAppear()
                 }
+                selectedSortType = sharedModel.appSortType
             }
             
             .navigationTitle("lc.appList.myApps".loc)
@@ -228,9 +261,38 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                         Task { await onOpenWebViewTapped() }
                     })
                 }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Picker("Sort by", selection: $sharedModel.appSortType) {
+                            ForEach(AppSortType.allCases, id: \.self) { sortType in
+                                Label(sortType.displayName, systemImage: sortType.systemImage)
+                                    .tag(sortType)
+                            }
+                        }
+                        .onChange(of: sharedModel.appSortType) { newValue in
+                            if newValue == .custom {
+                                if sharedModel.customSortOrder.isEmpty {
+                                    let currentOrder = (sharedModel.apps + sharedModel.hiddenApps)
+                                        .compactMap { $0.appInfo.bundleIdentifier() }
+                                    sharedModel.updateCustomSortOrder(currentOrder)
+                                }
+                            }
+                            sharedModel.updateSortType(newValue)
+                        }
+                        
+                        Divider()
+                        
+                        Button {
+                            customSortViewPresent = true
+                        } label: {
+                            Label("lc.appList.sort.customManage".loc, systemImage: "slider.horizontal.3")
+                        }
+                    } label: {
+                        Label("lc.appList.sort".loc, systemImage: "ellipsis.circle")
+                    }
+                }
             }
-
-            
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .alert("lc.common.error".loc, isPresented: $errorShow){
@@ -318,6 +380,9 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         .sheet(isPresented: $helpPresent) {
             LCHelpView(isPresent: $helpPresent)
         }
+        .sheet(isPresented: $customSortViewPresent) {
+            LCCustomSortView()
+        }
         .onOpenURL { url in
             handleURL(url: url)
         }
@@ -380,7 +445,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         await openWebView(urlString: urlToOpen)
         
     }
-    
     func onAppear() {
         for app in sharedModel.apps {
             app.delegate = self
@@ -638,18 +702,16 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                         return appNow == appToReplace
                     }
                     sharedModel.hiddenApps.append(LCAppModel(appInfo: finalNewApp, delegate: self))
-                    sharedModel.hiddenApps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
                 } else {
                     sharedModel.apps.removeAll { appNow in
                         return appNow == appToReplace
                     }
                     sharedModel.apps.append(LCAppModel(appInfo: finalNewApp, delegate: self))
-                    sharedModel.apps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
                 }
-
+                sharedModel.sortApps()
             } else {
-                sharedModel.apps.append(LCAppModel(appInfo: finalNewApp, delegate: self))
-                sharedModel.apps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
+                let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
+                sharedModel.addNewApp(newAppModel)
             }
 
             self.installprogressVisible = false
@@ -769,14 +831,13 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     return app == now
                 }
                 sharedModel.hiddenApps.append(app)
-                sharedModel.hiddenApps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
             } else {
                 sharedModel.hiddenApps.removeAll { now in
                     return app == now
                 }
                 sharedModel.apps.append(app)
-                sharedModel.apps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
             }
+            sharedModel.sortApps()
         }
     }
     

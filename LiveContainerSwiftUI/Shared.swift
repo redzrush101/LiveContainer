@@ -12,6 +12,34 @@ import SafariServices
 import Security
 import Combine
 
+enum AppSortType: String, CaseIterable {
+    case alphabetical = "alphabetical"
+    case reverseAlphabetical = "reverse_alphabetical"
+    case custom = "custom"
+    
+    var displayName: String {
+        switch self {
+        case .alphabetical:
+            return "lc.appList.sort.alphabetical".loc
+        case .reverseAlphabetical:
+            return "lc.appList.sort.reverseAlphabetical".loc
+        case .custom:
+            return "lc.appList.sort.custom".loc
+        }
+    }
+    
+    var systemImage: String {
+        switch self {
+        case .alphabetical:
+            return "chevron.down"
+        case .reverseAlphabetical:
+            return "chevron.up"
+        case .custom:
+            return "list.bullet"
+        }
+    }
+}
+
 struct LCPath {
     public static let docPath = {
         let fm = FileManager()
@@ -64,6 +92,10 @@ class SharedModel: ObservableObject {
     
     @Published var apps : [LCAppModel] = []
     @Published var hiddenApps : [LCAppModel] = []
+    
+    @Published var appSortType: AppSortType = .alphabetical
+    @Published var customSortOrder: [String] = []
+    
     let isPhone: Bool = {
         UIDevice.current.userInterfaceIdiom == .phone
     }()
@@ -93,6 +125,113 @@ class SharedModel: ObservableObject {
     
     init() {
         updateMultiLCStatus()
+        if let savedSortType = UserDefaults.standard.string(forKey: "LCAppSortType"),
+           let sortType = AppSortType(rawValue: savedSortType) {
+            self.appSortType = sortType
+        }
+        if let savedCustomOrder = UserDefaults.standard.array(forKey: "LCCustomSortOrder") as? [String] {
+            self.customSortOrder = savedCustomOrder
+        }
+    }
+    
+    func sortApps() {
+        apps = getSortedApps(apps)
+        hiddenApps = getSortedApps(hiddenApps)
+    }
+    
+    private func getSortedApps(_ appList: [LCAppModel]) -> [LCAppModel] {
+        switch appSortType {
+        case .alphabetical:
+            return appList.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
+        case .reverseAlphabetical:
+            return appList.sorted { $0.appInfo.displayName() > $1.appInfo.displayName() }
+        case .custom:
+            return sortByCustomOrder(appList)
+        }
+    }
+    
+    private func sortByCustomOrder(_ appList: [LCAppModel]) -> [LCAppModel] {
+        if customSortOrder.isEmpty {
+            return appList.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
+        }
+        
+        var sortedApps: [LCAppModel] = []
+        var remainingApps = appList
+        
+        for bundleId in customSortOrder {
+            if let index = remainingApps.firstIndex(where: { $0.appInfo.bundleIdentifier() == bundleId }) {
+                sortedApps.append(remainingApps.remove(at: index))
+            }
+        }
+        
+        remainingApps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
+        sortedApps.append(contentsOf: remainingApps)
+        
+        return sortedApps
+    }
+    
+    func updateSortType(_ newType: AppSortType) {
+        appSortType = newType
+        UserDefaults.standard.set(newType.rawValue, forKey: "LCAppSortType")
+        sortApps()
+    }
+    
+    func updateCustomSortOrder(_ order: [String]) {
+        customSortOrder = order
+        UserDefaults.standard.set(order, forKey: "LCCustomSortOrder")
+        if appSortType == .custom {
+            sortApps()
+        }
+    }
+    
+    func moveAppInCustomSort(from source: IndexSet, to destination: Int, isHidden: Bool = false) {
+        let targetApps = isHidden ? hiddenApps : apps
+        let bundleIds = targetApps.map { $0.appInfo.bundleIdentifier()! }
+        
+        var newOrder = customSortOrder.isEmpty ? bundleIds : customSortOrder
+        
+        for bundleId in bundleIds {
+            if !newOrder.contains(bundleId) {
+                newOrder.append(bundleId)
+            }
+        }
+        
+        newOrder.move(fromOffsets: source, toOffset: destination)
+        updateCustomSortOrder(newOrder)
+    }
+    
+    func addNewApp(_ app: LCAppModel) {
+        if let bundleId = app.appInfo.bundleIdentifier() {
+            switch appSortType {
+            case .alphabetical:
+                if app.appInfo.isHidden {
+                    let insertIndex = hiddenApps.firstIndex { $0.appInfo.displayName() > app.appInfo.displayName() } ?? hiddenApps.count
+                    hiddenApps.insert(app, at: insertIndex)
+                } else {
+                    let insertIndex = apps.firstIndex { $0.appInfo.displayName() > app.appInfo.displayName() } ?? apps.count
+                    apps.insert(app, at: insertIndex)
+                }
+            case .reverseAlphabetical:
+                if app.appInfo.isHidden {
+                    let insertIndex = hiddenApps.firstIndex { $0.appInfo.displayName() < app.appInfo.displayName() } ?? hiddenApps.count
+                    hiddenApps.insert(app, at: insertIndex)
+                } else {
+                    let insertIndex = apps.firstIndex { $0.appInfo.displayName() < app.appInfo.displayName() } ?? apps.count
+                    apps.insert(app, at: insertIndex)
+                }
+            case .custom:
+                if app.appInfo.isHidden {
+                    hiddenApps.append(app)
+                } else {
+                    apps.append(app)
+                }
+                var newOrder = customSortOrder
+                if !newOrder.contains(bundleId) {
+                    newOrder.append(bundleId)
+                }
+                updateCustomSortOrder(newOrder)
+            }
+        }
     }
 }
 
