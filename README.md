@@ -123,7 +123,7 @@ Open Xcode, edit `DEVELOPMENT_TEAM[config=Debug]` in `xcconfigs/Global.xcconfig`
 
 ### LiveContainerSwiftUI
 - SwiftUI rewrite of LiveContainerUI (by @hugeBlack)
-- Lanaguage file `Localizable.xcstrings` is in here for multilingual support. To help us translate LiveContainer, please visit [our crowdin project](https://crowdin.com/project/livecontainer)
+- Language file `Localizable.xcstrings` is in here for multilingual support. To help us translate LiveContainer, please visit [our crowdin project](https://crowdin.com/project/livecontainer)
 
 ### TweakLoader
 - A simple tweak injector, which loads CydiaSubstrate and load tweaks.
