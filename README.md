@@ -126,7 +126,7 @@ Open Xcode, edit `DEVELOPMENT_TEAM[config=Debug]` in `xcconfigs/Global.xcconfig`
 - Language file `Localizable.xcstrings` is in here for multilingual support. To help us translate LiveContainer, please visit [our crowdin project](https://crowdin.com/project/livecontainer)
 
 ### TweakLoader
-- A simple tweak injector, which loads CydiaSubstrate and load tweaks.
+- A simple tweak injector, which loads CydiaSubstrate and loads tweaks.
 - Injected to every app you install in LiveContainer.
 
 ### ZSign
