@@ -90,11 +90,9 @@ class SharedModel: ObservableObject {
     
     @Published var enableMultipleWindow = false
     
-    @Published var apps : [LCAppModel] = []
-    @Published var hiddenApps : [LCAppModel] = []
-    
-    @Published var appSortType: AppSortType = .alphabetical
-    @Published var customSortOrder: [String] = []
+    @Published var appSortManager = LCAppSortManager()
+
+    private var cancellables = Set<AnyCancellable>()
     
     let isPhone: Bool = {
         UIDevice.current.userInterfaceIdiom == .phone
@@ -125,75 +123,24 @@ class SharedModel: ObservableObject {
     
     init() {
         updateMultiLCStatus()
-        if let savedSortType = LCUtils.appGroupUserDefault.string(forKey: "LCAppSortType"),
-           let sortType = AppSortType(rawValue: savedSortType) {
-            self.appSortType = sortType
-        }
-        if let savedCustomOrder = LCUtils.appGroupUserDefault.array(forKey: "LCCustomSortOrder") as? [String] {
-            self.customSortOrder = savedCustomOrder
-        }
+
+        appSortManager.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }  
-    
-    func sortApps() {
-        // 先清理无效的排序条目，然后进行排序
-        if let updatedOrder = LCAppSortManager.getUpdatedCustomOrderIfNeeded(customSortOrder, apps: apps, hiddenApps: hiddenApps) {
-            customSortOrder = updatedOrder
-            LCUtils.appGroupUserDefault.set(updatedOrder, forKey: "LCCustomSortOrder")
-        }
-        
-        apps = LCAppSortManager.getSortedApps(apps, sortType: appSortType, customSortOrder: customSortOrder)
-        hiddenApps = LCAppSortManager.getSortedApps(hiddenApps, sortType: appSortType, customSortOrder: customSortOrder)
+
+    var apps: [LCAppModel] {
+        appSortManager.apps
     }
     
-    func updateSortType(_ newType: AppSortType) {
-        appSortType = newType
-        LCUtils.appGroupUserDefault.set(newType.rawValue, forKey: "LCAppSortType")
-        sortApps()
+    var hiddenApps: [LCAppModel] {
+        appSortManager.hiddenApps
     }
     
-    func updateCustomSortOrder(_ order: [String]) {
-        customSortOrder = order
-        LCUtils.appGroupUserDefault.set(order, forKey: "LCCustomSortOrder")
-        if appSortType == .custom {
-            sortApps()
-        }
-    }
-    
-    func moveAppInCustomSort(from source: IndexSet, to destination: Int, isHidden: Bool = false) {
-        let targetApps = isHidden ? hiddenApps : apps
-        let newOrder = LCAppSortManager.generateMoveOrder(for: targetApps, currentCustomOrder: customSortOrder, from: source, to: destination)
-        updateCustomSortOrder(newOrder)
-    }
-    
-    func addNewApp(_ app: LCAppModel) {
-        if let updatedOrder = LCAppSortManager.getUpdatedCustomOrderIfNeeded(customSortOrder, apps: apps, hiddenApps: hiddenApps) {
-            customSortOrder = updatedOrder
-            LCUtils.appGroupUserDefault.set(updatedOrder, forKey: "LCCustomSortOrder")
-        }
-        
-        let (insertToHidden, insertIndex, newCustomOrder) = LCAppSortManager.prepareAddOrder(
-            for: app, 
-            sortType: appSortType, 
-            apps: apps, 
-            hiddenApps: hiddenApps, 
-            currentCustomOrder: customSortOrder
-        )
-        
-        if insertToHidden {
-            hiddenApps.insert(app, at: insertIndex)
-        } else {
-            apps.insert(app, at: insertIndex)
-        }
-        
-        if newCustomOrder != customSortOrder {
-            updateCustomSortOrder(newCustomOrder)
-        }
-    }
-    
-    func cleanupCustomSortOrder() {
-        if let updatedOrder = LCAppSortManager.getUpdatedCustomOrderIfNeeded(customSortOrder, apps: apps, hiddenApps: hiddenApps) {
-            updateCustomSortOrder(updatedOrder)
-        }
+    var appSortType: AppSortType {
+        appSortManager.appSortType
     }
 }
 

@@ -4,22 +4,23 @@
 //
 //  Created by boa-z on 2025/6/21.
 //
-
 import SwiftUI
+import Combine
 
 struct LCCustomSortView: View {
     @EnvironmentObject private var sharedModel: SharedModel
     @Environment(\.presentationMode) var presentationMode
     
-    @State private var apps: [LCAppModel] = []
-    @State private var hiddenApps: [LCAppModel] = []
+    // Local state for editing without modifying shared model
+    @State private var localApps: [LCAppModel] = []
+    @State private var localHiddenApps: [LCAppModel] = []
     
     var body: some View {
         NavigationView {
             Form {
-                if !apps.isEmpty {
-                    // Section("lc.appList.visibleApps".loc) {
-                        ForEach(apps, id: \.self) { app in
+                // Visible apps section
+                if !localApps.isEmpty {
+                        ForEach(localApps, id: \.self) { app in
                             HStack {
                                 Image(uiImage: app.appInfo.icon())
                                     .resizable()
@@ -39,22 +40,20 @@ struct LCCustomSortView: View {
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
                                 }
-                                
                                 Spacer()
                             }
                             .padding(.vertical, 4)
                         }
                         .onMove { source, destination in
-                            apps.move(fromOffsets: source, toOffset: destination)
-                            updateCustomSortOrder()
+                            localApps.move(fromOffsets: source, toOffset: destination)
                         }
-                    // }
                 }
                 
-                if sharedModel.isHiddenAppUnlocked && !hiddenApps.isEmpty {
+                // Hidden apps section
+                if sharedModel.isHiddenAppUnlocked && !localHiddenApps.isEmpty {
                     Section("lc.appList.hiddenApps".loc) {
-                        ForEach(hiddenApps, id: \.self) { app in
-                            HStack {
+                        ForEach(localHiddenApps, id: \.self) { app in
+                             HStack {
                                 Image(uiImage: app.appInfo.icon())
                                     .resizable()
                                     .frame(width: 60, height: 60)
@@ -79,14 +78,14 @@ struct LCCustomSortView: View {
                             .padding(.vertical, 4)
                         }
                         .onMove { source, destination in
-                            hiddenApps.move(fromOffsets: source, toOffset: destination)
-                            updateCustomSortOrder()
+                            localHiddenApps.move(fromOffsets: source, toOffset: destination)
                         }
                     }
                 }
                 
                 Section {
                     Button("lc.appList.sort.resetToAlphabetical".loc) {
+                        // Reset only affects local state
                         resetToAlphabetical()
                     }
                     .foregroundColor(.orange)
@@ -99,69 +98,56 @@ struct LCCustomSortView: View {
             .navigationTitle("lc.appList.sort.custom".loc)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                // Cancel button
+                ToolbarItem(placement: .cancellationAction) {
                     Button("lc.common.cancel".loc) {
-                        presentationMode.wrappedValue.dismiss()
+                        cancelChanges()
                     }
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    if #available(iOS 16.0, *) {
-                        Button("lc.common.done".loc) {
-                            presentationMode.wrappedValue.dismiss()
-                        }
-                        .font(.system(size: 17))
-                        .fontWeight(.bold)
-                    } else {
-                        Button("lc.common.done".loc) {
-                            presentationMode.wrappedValue.dismiss()
-                        }
-                        .font(.system(size: 17, weight: .bold))
+                // Done button
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("lc.common.done".loc) {
+                        saveChanges()
                     }
                 }
             }
             .environment(\.editMode, .constant(.active))
         }
         .onAppear {
-            loadApps()
+            // Initialize local state when view appears
+            initializeLocalState()
         }
     }
     
-    private func loadApps() {
-        apps = getSortedByCustomOrder(sharedModel.apps)
-        hiddenApps = getSortedByCustomOrder(sharedModel.hiddenApps)
-    }
-    
-    private func getSortedByCustomOrder(_ appList: [LCAppModel]) -> [LCAppModel] {
-        return LCAppSortManager.getSortedApps(appList, sortType: .custom, customSortOrder: sharedModel.customSortOrder)
-    }
-    
-    private func updateCustomSortOrder() {
-        var newOrder: [String] = []
-        
-        for app in apps {
-            if let uniqueId = LCAppSortManager.getUniqueIdentifier(for: app) {
-                newOrder.append(uniqueId)
-            }
-        }
-        
-        for app in hiddenApps {
-            if let uniqueId = LCAppSortManager.getUniqueIdentifier(for: app) {
-                newOrder.append(uniqueId)
-            }
-        }
-        
-        sharedModel.updateCustomSortOrder(newOrder)
+    // MARK: - Private Methods
+
+    private func initializeLocalState() {
+        let manager = sharedModel.appSortManager
+        self.localApps = LCAppSortManager.getSortedApps(manager.apps, sortType: .custom, customSortOrder: manager.customSortOrder)
+        self.localHiddenApps = LCAppSortManager.getSortedApps(manager.hiddenApps, sortType: .custom, customSortOrder: manager.customSortOrder)
     }
     
     private func resetToAlphabetical() {
-        apps = sharedModel.apps.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
-        hiddenApps = sharedModel.hiddenApps.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
-        updateCustomSortOrder()
+        self.localApps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
+        self.localHiddenApps.sort { $0.appInfo.displayName() < $1.appInfo.displayName() }
     }
-}
-
-#Preview {
-    LCCustomSortView()
-        .environmentObject(DataManager.shared.model)
+    
+    private func cancelChanges() {
+        presentationMode.wrappedValue.dismiss()
+    }
+    
+    private func saveChanges() {
+        let manager = sharedModel.appSortManager
+        
+        let newCustomOrder = (localApps + localHiddenApps)
+            .compactMap { manager.getUniqueIdentifier(for: $0) }
+        
+        manager.updateCustomSortOrder(newCustomOrder)
+        
+        if manager.appSortType != .custom {
+            manager.updateSortType(.custom)
+        }
+        
+        presentationMode.wrappedValue.dismiss()
+    }
 }

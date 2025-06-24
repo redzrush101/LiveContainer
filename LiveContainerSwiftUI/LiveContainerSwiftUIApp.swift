@@ -80,10 +80,9 @@ struct LiveContainerSwiftUIApp : App {
             NSLog("[LC] error:\(error)")
         }
         
-        // 设置应用数据并进行初始排序
-        DataManager.shared.model.apps = tempApps
-        DataManager.shared.model.hiddenApps = tempHiddenApps
-        DataManager.shared.model.sortApps()
+
+        let allScannedApps = tempApps + tempHiddenApps
+        DataManager.shared.model.appSortManager.setInitialApps(allScannedApps)
         
         _appDataFolderNames = State(initialValue: tempAppDataFolderNames)
         _tweakFolderNames = State(initialValue: tempTweakFolderNames)

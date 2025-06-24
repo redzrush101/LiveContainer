@@ -7,13 +7,100 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
-/// App sorting business logic manager
-class LCAppSortManager {
+/// Manages the state and logic for sorting the list of applications.
+class LCAppSortManager: ObservableObject {
+
+    @Published var apps: [LCAppModel] = []
+    @Published var hiddenApps: [LCAppModel] = []
     
-    // MARK: - Unique Identifier Methods
+    @Published var appSortType: AppSortType {
+        didSet {
+            saveSortType()
+            applySort()
+        }
+    }
     
-    /// Generate unique identifier for app using bundleId:relativePath format
+    @Published private(set) var customSortOrder: [String] {
+        didSet {
+            saveCustomSortOrder()
+        }
+    }
+    
+    private let userDefaults = LCUtils.appGroupUserDefault
+
+    // MARK: - Initialization
+    
+    init() {
+        let savedSortTypeRaw = userDefaults.string(forKey: "LCAppSortType")
+        self.appSortType = AppSortType(rawValue: savedSortTypeRaw ?? "") ?? .alphabetical
+        
+        self.customSortOrder = userDefaults.array(forKey: "LCCustomSortOrder") as? [String] ?? []
+    }
+    
+    // MARK: - Public API for UI Interaction
+
+    func setInitialApps(_ allApps: [LCAppModel]) {
+        self.apps = allApps.filter { !$0.appInfo.isHidden }
+        self.hiddenApps = allApps.filter { $0.appInfo.isHidden }
+        self.cleanupCustomSortOrder()
+        self.applySort()
+    }
+
+    func updateSortType(_ newType: AppSortType) {
+        self.appSortType = newType
+    }
+    
+    func addNewApp(_ app: LCAppModel) {
+        if app.appInfo.isHidden {
+            hiddenApps.append(app)
+        } else {
+            apps.append(app)
+        }
+        
+        if let uniqueId = Self.getUniqueIdentifier(for: app), !customSortOrder.contains(uniqueId) {
+            customSortOrder.append(uniqueId)
+        }
+        
+        applySort()
+    }
+
+    func cleanupCustomSortOrder() {
+        let cleanedOrder = Self.cleanupCustomSortOrder(
+            self.customSortOrder,
+            apps: self.apps,
+            hiddenApps: self.hiddenApps
+        )
+        
+        if cleanedOrder.count != self.customSortOrder.count {
+            self.customSortOrder = cleanedOrder
+        }
+    }
+
+        func updateCustomSortOrder(_ newOrder: [String]) {
+        self.customSortOrder = newOrder
+        applySort()
+    }
+    
+    // MARK: - Internal Logic
+    
+    // private func applySort() {
+    func applySort() {
+        self.apps = Self.getSortedApps(self.apps, sortType: self.appSortType, customSortOrder: self.customSortOrder)
+        self.hiddenApps = Self.getSortedApps(self.hiddenApps, sortType: self.appSortType, customSortOrder: self.customSortOrder)
+    }
+
+    private func saveSortType() {
+        userDefaults.set(appSortType.rawValue, forKey: "LCAppSortType")
+    }
+    
+    private func saveCustomSortOrder() {
+        userDefaults.set(customSortOrder, forKey: "LCCustomSortOrder")
+    }
+    
+    // MARK: - Core Logic (Stateless Static Functions)
+    
     static func getUniqueIdentifier(for app: LCAppModel) -> String? {
         guard let bundleId = app.appInfo.bundleIdentifier(),
               let relativePath = app.appInfo.relativeBundlePath else {
@@ -22,7 +109,10 @@ class LCAppSortManager {
         return "\(bundleId):\(relativePath)"
     }
     
-    /// Check if unique identifier matches the app
+    func getUniqueIdentifier(for app: LCAppModel) -> String? {
+        return Self.getUniqueIdentifier(for: app)
+    }
+    
     static func matches(uniqueId: String, app: LCAppModel) -> Bool {
         guard let appUniqueId = getUniqueIdentifier(for: app) else {
             return false
@@ -30,9 +120,6 @@ class LCAppSortManager {
         return uniqueId == appUniqueId
     }
     
-    // MARK: - Sorting Methods
-    
-    /// Sort app list by specified sort type
     static func getSortedApps(_ appList: [LCAppModel], sortType: AppSortType, customSortOrder: [String]) -> [LCAppModel] {
         switch sortType {
         case .alphabetical:
@@ -44,7 +131,6 @@ class LCAppSortManager {
         }
     }
     
-    /// Sort app list by custom order using unique identifiers
     private static func sortByCustomOrder(_ appList: [LCAppModel], customSortOrder: [String]) -> [LCAppModel] {
         if customSortOrder.isEmpty {
             return appList.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
@@ -65,80 +151,11 @@ class LCAppSortManager {
         return sortedApps
     }
     
-    // MARK: - Drag & Drop Methods
-    
-    /// Generate new sort order after drag and drop operation
-    static func generateMoveOrder(for targetApps: [LCAppModel], 
-                                  currentCustomOrder: [String], 
-                                  from source: IndexSet, 
-                                  to destination: Int) -> [String] {
-        let uniqueIds = targetApps.compactMap { getUniqueIdentifier(for: $0) }
-        
-        var newOrder = currentCustomOrder.isEmpty ? uniqueIds : currentCustomOrder
-        
-        for uniqueId in uniqueIds {
-            if !newOrder.contains(uniqueId) {
-                newOrder.append(uniqueId)
-            }
-        }
-        
-        newOrder.move(fromOffsets: source, toOffset: destination)
-        return newOrder
-    }
-    
-    // MARK: - Cleanup Methods
-    
-    /// Remove invalid entries from custom sort order
-    static func cleanupCustomSortOrder(_ currentCustomOrder: [String], 
-                                       apps: [LCAppModel], 
+    static func cleanupCustomSortOrder(_ currentCustomOrder: [String],
+                                       apps: [LCAppModel],
                                        hiddenApps: [LCAppModel]) -> [String] {
         let allApps = apps + hiddenApps
         let validUniqueIds = Set(allApps.compactMap { getUniqueIdentifier(for: $0) })
-        
-        let cleanedOrder = currentCustomOrder.filter { validUniqueIds.contains($0) }
-        return cleanedOrder
-    }
-    
-    // MARK: - App Management Methods
-    
-    /// Prepare insertion info for new app without modifying arrays
-    static func prepareAddOrder(for app: LCAppModel,
-                                sortType: AppSortType,
-                                apps: [LCAppModel],
-                                hiddenApps: [LCAppModel],
-                                currentCustomOrder: [String]) -> (insertToHidden: Bool, insertIndex: Int, newCustomOrder: [String]) {
-        guard let uniqueId = getUniqueIdentifier(for: app) else {
-            return (app.appInfo.isHidden, app.appInfo.isHidden ? hiddenApps.count : apps.count, currentCustomOrder)
-        }
-        
-        let targetArray = app.appInfo.isHidden ? hiddenApps : apps
-        let insertToHidden = app.appInfo.isHidden
-        
-        switch sortType {
-        case .alphabetical:
-            let insertIndex = targetArray.firstIndex { $0.appInfo.displayName() > app.appInfo.displayName() } ?? targetArray.count
-            return (insertToHidden, insertIndex, currentCustomOrder)
-            
-        case .reverseAlphabetical:
-            let insertIndex = targetArray.firstIndex { $0.appInfo.displayName() < app.appInfo.displayName() } ?? targetArray.count
-            return (insertToHidden, insertIndex, currentCustomOrder)
-            
-        case .custom:
-            var newOrder = currentCustomOrder
-            if !newOrder.contains(uniqueId) {
-                newOrder.append(uniqueId)
-            }
-            return (insertToHidden, targetArray.count, newOrder)
-        }
-    }
-    
-    // MARK: - Utility Methods
-    
-    /// Return updated custom order if cleanup is needed, otherwise nil
-    static func getUpdatedCustomOrderIfNeeded(_ currentCustomOrder: [String], 
-                                              apps: [LCAppModel], 
-                                              hiddenApps: [LCAppModel]) -> [String]? {
-        let cleanedOrder = cleanupCustomSortOrder(currentCustomOrder, apps: apps, hiddenApps: hiddenApps)
-        return cleanedOrder.count != currentCustomOrder.count ? cleanedOrder : nil
+        return currentCustomOrder.filter { validUniqueIds.contains($0) }
     }
 }

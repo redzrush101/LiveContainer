@@ -136,9 +136,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     ForEach(filteredApps, id: \.self) { app in
                         LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
                     }
-                    .onMove(perform: sharedModel.appSortType == .custom && searchContext.debouncedQuery.isEmpty ? { source, destination in
-                        sharedModel.moveAppInCustomSort(from: source, to: destination, isHidden: false)
-                    } : nil)
                     .transition(.scale)
                 }
                 .padding()
@@ -158,9 +155,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                                 if sharedModel.appSortType == .custom && searchContext.debouncedQuery.isEmpty {
                                     ForEach(filteredHiddenApps, id: \.self) { app in
                                         LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
-                                    }
-                                    .onMove { source, destination in
-                                        sharedModel.moveAppInCustomSort(from: source, to: destination, isHidden: true)
                                     }
                                     .transition(.scale)
                                 } else {
@@ -225,7 +219,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 if !didAppear {
                     onAppear()
                 }
-                selectedSortType = sharedModel.appSortType
+                selectedSortType = sharedModel.appSortManager.appSortType
             }
             
             .navigationTitle("lc.appList.myApps".loc)
@@ -264,23 +258,14 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Picker("Sort by", selection: $sharedModel.appSortType) {
+
+                        Picker("Sort by", selection: $sharedModel.appSortManager.appSortType) {
                             ForEach(AppSortType.allCases, id: \.self) { sortType in
                                 Label(sortType.displayName, systemImage: sortType.systemImage)
                                     .tag(sortType)
                             }
                         }
-                        .onChange(of: sharedModel.appSortType) { newValue in
-                            if newValue == .custom {
-                                if sharedModel.customSortOrder.isEmpty {
-                                    let currentOrder = (sharedModel.apps + sharedModel.hiddenApps)
-                                        .compactMap { $0.appInfo.bundleIdentifier() }
-                                    sharedModel.updateCustomSortOrder(currentOrder)
-                                }
-                            }
-                            sharedModel.updateSortType(newValue)
-                        }
-                        
+
                         Divider()
                         
                         Button {
@@ -697,21 +682,21 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         DispatchQueue.main.async {
             if let appToReplace {
+                let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
+                
                 if appToReplace.uiIsHidden {
-                    sharedModel.hiddenApps.removeAll { appNow in
-                        return appNow == appToReplace
-                    }
-                    sharedModel.hiddenApps.append(LCAppModel(appInfo: finalNewApp, delegate: self))
+                    sharedModel.appSortManager.hiddenApps.removeAll { $0 == appToReplace }
+                    sharedModel.appSortManager.hiddenApps.append(newAppModel)
                 } else {
-                    sharedModel.apps.removeAll { appNow in
-                        return appNow == appToReplace
-                    }
-                    sharedModel.apps.append(LCAppModel(appInfo: finalNewApp, delegate: self))
+                    sharedModel.appSortManager.apps.removeAll { $0 == appToReplace }
+                    sharedModel.appSortManager.apps.append(newAppModel)
                 }
-                sharedModel.sortApps()
+
+                sharedModel.appSortManager.applySort()
             } else {
                 let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
-                sharedModel.addNewApp(newAppModel)
+
+                sharedModel.appSortManager.addNewApp(newAppModel)
             }
 
             self.installprogressVisible = false
@@ -815,33 +800,38 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     func removeApp(app: LCAppModel) {
         DispatchQueue.main.async {
-            sharedModel.apps.removeAll { now in
+            sharedModel.appSortManager.apps.removeAll { now in
                 return app == now
             }
-            sharedModel.hiddenApps.removeAll { now in
+            sharedModel.appSortManager.hiddenApps.removeAll { now in
                 return app == now
             }
-            sharedModel.cleanupCustomSortOrder()
+            
+            sharedModel.appSortManager.cleanupCustomSortOrder()
         }
     }
     
     func changeAppVisibility(app: LCAppModel) {
         DispatchQueue.main.async {
             if app.appInfo.isHidden {
-                sharedModel.apps.removeAll { now in
+                sharedModel.appSortManager.apps.removeAll { now in
                     return app == now
                 }
-                sharedModel.hiddenApps.append(app)
+                if !sharedModel.appSortManager.hiddenApps.contains(app) {
+                    sharedModel.appSortManager.hiddenApps.append(app)
+                }
             } else {
-                sharedModel.hiddenApps.removeAll { now in
+                sharedModel.appSortManager.hiddenApps.removeAll { now in
                     return app == now
                 }
-                sharedModel.apps.append(app)
+                if !sharedModel.appSortManager.apps.contains(app) {
+                    sharedModel.appSortManager.apps.append(app)
+                }
             }
-            sharedModel.sortApps()
+            
+            sharedModel.appSortManager.applySort() 
         }
     }
-    
     
     func launchAppWithBundleId(bundleId : String, container : String?) async {
         if bundleId == "" {
