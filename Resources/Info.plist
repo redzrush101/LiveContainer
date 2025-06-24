@@ -46,6 +46,10 @@
 			<true/>
 		</dict>
 	</dict>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconUsesAutomaticDarkModeVariant</key>
+	<true/>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
