@@ -75,9 +75,10 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @State private var helpPresent = false
     
     @State private var customSortViewPresent = false
-    @State private var selectedSortType: AppSortType = .alphabetical
     
     @EnvironmentObject private var sharedModel : SharedModel
+    @EnvironmentObject private var sharedAppSortManager : LCAppSortManager
+    
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     
@@ -140,7 +141,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 }
                 .padding()
                 .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredApps)
-                .animation(.easeInOut, value: sharedModel.appSortType)
+                .animation(.easeInOut, value: sharedAppSortManager.appSortType)
 
                 VStack {
                     if LCUtils.appGroupUserDefault.bool(forKey: "LCStrictHiding") {
@@ -152,7 +153,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                                     Spacer()
                                 }
                                 
-                                if sharedModel.appSortType == .custom && searchContext.debouncedQuery.isEmpty {
+                                if sharedAppSortManager.appSortType == .custom && searchContext.debouncedQuery.isEmpty {
                                     ForEach(filteredHiddenApps, id: \.self) { app in
                                         LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
                                     }
@@ -167,7 +168,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                             .padding()
                             .transition(.opacity)
                             .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredHiddenApps)
-                            .animation(.easeInOut, value: sharedModel.appSortType)
+                            .animation(.easeInOut, value: sharedAppSortManager.appSortType)
                             
                             if sharedModel.hiddenApps.count == 0 {
                                 Text("lc.appList.hideAppTip".loc)
@@ -195,7 +196,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                         }
                         .padding()
                         .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredHiddenApps)
-                        .animation(.easeInOut, value: sharedModel.appSortType)
+                        .animation(.easeInOut, value: sharedAppSortManager.appSortType)
                     }
 
                     let appCount = sharedModel.isHiddenAppUnlocked ? filteredApps.count + filteredHiddenApps.count : filteredApps.count
@@ -219,7 +220,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 if !didAppear {
                     onAppear()
                 }
-                selectedSortType = sharedModel.appSortManager.appSortType
             }
             
             .navigationTitle("lc.appList.myApps".loc)
@@ -259,7 +259,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
 
-                        Picker("Sort by", selection: $sharedModel.appSortManager.appSortType) {
+                        Picker("Sort by", selection: $sharedAppSortManager.appSortType) {
                             ForEach(AppSortType.allCases, id: \.self) { sortType in
                                 Label(sortType.displayName, systemImage: sortType.systemImage)
                                     .tag(sortType)
@@ -685,18 +685,18 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
                 
                 if appToReplace.uiIsHidden {
-                    sharedModel.appSortManager.hiddenApps.removeAll { $0 == appToReplace }
-                    sharedModel.appSortManager.hiddenApps.append(newAppModel)
+                    sharedModel.hiddenApps.removeAll { $0 == appToReplace }
+                    sharedModel.hiddenApps.append(newAppModel)
                 } else {
-                    sharedModel.appSortManager.apps.removeAll { $0 == appToReplace }
-                    sharedModel.appSortManager.apps.append(newAppModel)
+                    sharedModel.apps.removeAll { $0 == appToReplace }
+                    sharedModel.apps.append(newAppModel)
                 }
 
-                sharedModel.appSortManager.applySort()
+                LCAppSortManager.shared.applySort()
             } else {
                 let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
 
-                sharedModel.appSortManager.addNewApp(newAppModel)
+                LCAppSortManager.shared.addNewApp(newAppModel)
             }
 
             self.installprogressVisible = false
@@ -800,36 +800,36 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     func removeApp(app: LCAppModel) {
         DispatchQueue.main.async {
-            sharedModel.appSortManager.apps.removeAll { now in
+            sharedModel.apps.removeAll { now in
                 return app == now
             }
-            sharedModel.appSortManager.hiddenApps.removeAll { now in
+            sharedModel.hiddenApps.removeAll { now in
                 return app == now
             }
             
-            sharedModel.appSortManager.cleanupCustomSortOrder()
+            LCAppSortManager.shared.cleanupCustomSortOrder()
         }
     }
     
     func changeAppVisibility(app: LCAppModel) {
         DispatchQueue.main.async {
             if app.appInfo.isHidden {
-                sharedModel.appSortManager.apps.removeAll { now in
+                sharedModel.apps.removeAll { now in
                     return app == now
                 }
-                if !sharedModel.appSortManager.hiddenApps.contains(app) {
-                    sharedModel.appSortManager.hiddenApps.append(app)
+                if !sharedModel.hiddenApps.contains(app) {
+                    sharedModel.hiddenApps.append(app)
                 }
             } else {
-                sharedModel.appSortManager.hiddenApps.removeAll { now in
+                sharedModel.hiddenApps.removeAll { now in
                     return app == now
                 }
-                if !sharedModel.appSortManager.apps.contains(app) {
-                    sharedModel.appSortManager.apps.append(app)
+                if !sharedModel.apps.contains(app) {
+                    sharedModel.apps.append(app)
                 }
             }
             
-            sharedModel.appSortManager.applySort() 
+            LCAppSortManager.shared.applySort()
         }
     }
     

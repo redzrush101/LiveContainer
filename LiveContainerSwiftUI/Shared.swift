@@ -90,9 +90,8 @@ class SharedModel: ObservableObject {
     
     @Published var enableMultipleWindow = false
     
-    @Published var appSortManager = LCAppSortManager()
-
-    private var cancellables = Set<AnyCancellable>()
+    @Published var apps : [LCAppModel] = []
+    @Published var hiddenApps : [LCAppModel] = []
     
     let isPhone: Bool = {
         UIDevice.current.userInterfaceIdiom == .phone
@@ -123,24 +122,6 @@ class SharedModel: ObservableObject {
     
     init() {
         updateMultiLCStatus()
-
-        appSortManager.objectWillChange
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
-    }  
-
-    var apps: [LCAppModel] {
-        appSortManager.apps
-    }
-    
-    var hiddenApps: [LCAppModel] {
-        appSortManager.hiddenApps
-    }
-    
-    var appSortType: AppSortType {
-        appSortManager.appSortType
     }
 }
 

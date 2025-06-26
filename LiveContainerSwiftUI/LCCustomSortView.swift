@@ -122,9 +122,9 @@ struct LCCustomSortView: View {
     // MARK: - Private Methods
 
     private func initializeLocalState() {
-        let manager = sharedModel.appSortManager
-        self.localApps = LCAppSortManager.getSortedApps(manager.apps, sortType: .custom, customSortOrder: manager.customSortOrder)
-        self.localHiddenApps = LCAppSortManager.getSortedApps(manager.hiddenApps, sortType: .custom, customSortOrder: manager.customSortOrder)
+        let manager = LCAppSortManager.shared
+        self.localApps = manager.getSortedApps(sharedModel.apps, sortType: .custom, customSortOrder: manager.customSortOrder)
+        self.localHiddenApps = manager.getSortedApps(sharedModel.hiddenApps, sortType: .custom, customSortOrder: manager.customSortOrder)
     }
     
     private func resetToAlphabetical() {
@@ -137,16 +137,13 @@ struct LCCustomSortView: View {
     }
     
     private func saveChanges() {
-        let manager = sharedModel.appSortManager
+        let manager = LCAppSortManager.shared
         
         let newCustomOrder = (localApps + localHiddenApps)
             .compactMap { manager.getUniqueIdentifier(for: $0) }
         
-        manager.updateCustomSortOrder(newCustomOrder)
-        
-        if manager.appSortType != .custom {
-            manager.updateSortType(.custom)
-        }
+        manager.customSortOrder = newCustomOrder
+        manager.appSortType = .custom
         
         presentationMode.wrappedValue.dismiss()
     }

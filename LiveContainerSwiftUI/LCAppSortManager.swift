@@ -11,55 +11,36 @@ import Combine
 
 /// Manages the state and logic for sorting the list of applications.
 class LCAppSortManager: ObservableObject {
-
-    @Published var apps: [LCAppModel] = []
-    @Published var hiddenApps: [LCAppModel] = []
     
-    @Published var appSortType: AppSortType {
+    static var shared: LCAppSortManager = LCAppSortManager()
+    
+    @AppStorage("LCAppSortType", store: LCUtils.appGroupUserDefault) var appSortType: AppSortType = .alphabetical {
         didSet {
-            saveSortType()
             applySort()
         }
     }
     
-    @Published private(set) var customSortOrder: [String] {
+    @Published var customSortOrder: [String] {
         didSet {
-            saveCustomSortOrder()
+            LCUtils.appGroupUserDefault.set(customSortOrder, forKey: "LCCustomSortOrder")
+            applySort()
         }
     }
-    
-    private let userDefaults = LCUtils.appGroupUserDefault
 
     // MARK: - Initialization
     
     init() {
-        let savedSortTypeRaw = userDefaults.string(forKey: "LCAppSortType")
-        self.appSortType = AppSortType(rawValue: savedSortTypeRaw ?? "") ?? .alphabetical
-        
-        self.customSortOrder = userDefaults.array(forKey: "LCCustomSortOrder") as? [String] ?? []
-    }
-    
-    // MARK: - Public API for UI Interaction
-
-    func setInitialApps(_ allApps: [LCAppModel]) {
-        self.apps = allApps.filter { !$0.appInfo.isHidden }
-        self.hiddenApps = allApps.filter { $0.appInfo.isHidden }
-        self.cleanupCustomSortOrder()
-        self.applySort()
-    }
-
-    func updateSortType(_ newType: AppSortType) {
-        self.appSortType = newType
+        self.customSortOrder = LCUtils.appGroupUserDefault.array(forKey: "LCCustomSortOrder") as? [String] ?? []
     }
     
     func addNewApp(_ app: LCAppModel) {
         if app.appInfo.isHidden {
-            hiddenApps.append(app)
+            DataManager.shared.model.hiddenApps.append(app)
         } else {
-            apps.append(app)
+            DataManager.shared.model.apps.append(app)
         }
         
-        if let uniqueId = Self.getUniqueIdentifier(for: app), !customSortOrder.contains(uniqueId) {
+        if let uniqueId = getUniqueIdentifier(for: app), !customSortOrder.contains(uniqueId) {
             customSortOrder.append(uniqueId)
         }
         
@@ -67,41 +48,23 @@ class LCAppSortManager: ObservableObject {
     }
 
     func cleanupCustomSortOrder() {
-        let cleanedOrder = Self.cleanupCustomSortOrder(
-            self.customSortOrder,
-            apps: self.apps,
-            hiddenApps: self.hiddenApps
-        )
+        let allApps = DataManager.shared.model.apps + DataManager.shared.model.hiddenApps
+        let validUniqueIds = Set(allApps.compactMap { getUniqueIdentifier(for: $0) })
+        let cleanedOrder = customSortOrder.filter { validUniqueIds.contains($0) }
         
         if cleanedOrder.count != self.customSortOrder.count {
             self.customSortOrder = cleanedOrder
         }
     }
-
-        func updateCustomSortOrder(_ newOrder: [String]) {
-        self.customSortOrder = newOrder
-        applySort()
-    }
     
     // MARK: - Internal Logic
     
-    // private func applySort() {
     func applySort() {
-        self.apps = Self.getSortedApps(self.apps, sortType: self.appSortType, customSortOrder: self.customSortOrder)
-        self.hiddenApps = Self.getSortedApps(self.hiddenApps, sortType: self.appSortType, customSortOrder: self.customSortOrder)
-    }
-
-    private func saveSortType() {
-        userDefaults.set(appSortType.rawValue, forKey: "LCAppSortType")
+        DataManager.shared.model.apps = getSortedApps(DataManager.shared.model.apps, sortType: self.appSortType, customSortOrder: self.customSortOrder)
+        DataManager.shared.model.hiddenApps = getSortedApps(DataManager.shared.model.hiddenApps, sortType: self.appSortType, customSortOrder: self.customSortOrder)
     }
     
-    private func saveCustomSortOrder() {
-        userDefaults.set(customSortOrder, forKey: "LCCustomSortOrder")
-    }
-    
-    // MARK: - Core Logic (Stateless Static Functions)
-    
-    static func getUniqueIdentifier(for app: LCAppModel) -> String? {
+    func getUniqueIdentifier(for app: LCAppModel) -> String? {
         guard let bundleId = app.appInfo.bundleIdentifier(),
               let relativePath = app.appInfo.relativeBundlePath else {
             return nil
@@ -109,18 +72,14 @@ class LCAppSortManager: ObservableObject {
         return "\(bundleId):\(relativePath)"
     }
     
-    func getUniqueIdentifier(for app: LCAppModel) -> String? {
-        return Self.getUniqueIdentifier(for: app)
-    }
-    
-    static func matches(uniqueId: String, app: LCAppModel) -> Bool {
+    func matches(uniqueId: String, app: LCAppModel) -> Bool {
         guard let appUniqueId = getUniqueIdentifier(for: app) else {
             return false
         }
         return uniqueId == appUniqueId
     }
     
-    static func getSortedApps(_ appList: [LCAppModel], sortType: AppSortType, customSortOrder: [String]) -> [LCAppModel] {
+    func getSortedApps(_ appList: [LCAppModel], sortType: AppSortType, customSortOrder: [String]) -> [LCAppModel] {
         switch sortType {
         case .alphabetical:
             return appList.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
@@ -131,7 +90,7 @@ class LCAppSortManager: ObservableObject {
         }
     }
     
-    private static func sortByCustomOrder(_ appList: [LCAppModel], customSortOrder: [String]) -> [LCAppModel] {
+    private func sortByCustomOrder(_ appList: [LCAppModel], customSortOrder: [String]) -> [LCAppModel] {
         if customSortOrder.isEmpty {
             return appList.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
         }
@@ -151,11 +110,4 @@ class LCAppSortManager: ObservableObject {
         return sortedApps
     }
     
-    static func cleanupCustomSortOrder(_ currentCustomOrder: [String],
-                                       apps: [LCAppModel],
-                                       hiddenApps: [LCAppModel]) -> [String] {
-        let allApps = apps + hiddenApps
-        let validUniqueIds = Set(allApps.compactMap { getUniqueIdentifier(for: $0) })
-        return currentCustomOrder.filter { validUniqueIds.contains($0) }
-    }
 }
