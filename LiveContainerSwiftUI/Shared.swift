@@ -12,6 +12,34 @@ import SafariServices
 import Security
 import Combine
 
+enum AppSortType: String, CaseIterable {
+    case alphabetical = "alphabetical"
+    case reverseAlphabetical = "reverse_alphabetical"
+    case custom = "custom"
+    
+    var displayName: String {
+        switch self {
+        case .alphabetical:
+            return "lc.appList.sort.alphabetical".loc
+        case .reverseAlphabetical:
+            return "lc.appList.sort.reverseAlphabetical".loc
+        case .custom:
+            return "lc.appList.sort.custom".loc
+        }
+    }
+    
+    var systemImage: String {
+        switch self {
+        case .alphabetical:
+            return "chevron.down"
+        case .reverseAlphabetical:
+            return "chevron.up"
+        case .custom:
+            return "list.bullet"
+        }
+    }
+}
+
 struct LCPath {
     public static let docPath = {
         let fm = FileManager()
@@ -62,8 +90,10 @@ class SharedModel: ObservableObject {
     
     @Published var enableMultipleWindow = false
     
-    @Published var apps : [LCAppModel] = []
-    @Published var hiddenApps : [LCAppModel] = []
+    @Published var appSortManager = LCAppSortManager()
+
+    private var cancellables = Set<AnyCancellable>()
+    
     let isPhone: Bool = {
         UIDevice.current.userInterfaceIdiom == .phone
     }()
@@ -93,6 +123,24 @@ class SharedModel: ObservableObject {
     
     init() {
         updateMultiLCStatus()
+
+        appSortManager.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+    }  
+
+    var apps: [LCAppModel] {
+        appSortManager.apps
+    }
+    
+    var hiddenApps: [LCAppModel] {
+        appSortManager.hiddenApps
+    }
+    
+    var appSortType: AppSortType {
+        appSortManager.appSortType
     }
 }
 

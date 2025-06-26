@@ -79,8 +79,11 @@ struct LiveContainerSwiftUIApp : App {
         } catch {
             NSLog("[LC] error:\(error)")
         }
-        DataManager.shared.model.apps = tempApps.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
-        DataManager.shared.model.hiddenApps = tempHiddenApps.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
+        
+
+        let allScannedApps = tempApps + tempHiddenApps
+        DataManager.shared.model.appSortManager.setInitialApps(allScannedApps)
+        
         _appDataFolderNames = State(initialValue: tempAppDataFolderNames)
         _tweakFolderNames = State(initialValue: tempTweakFolderNames)
     }
