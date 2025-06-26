@@ -151,7 +151,6 @@
 				AppIcon76x76_2.png,
 				AppIcon76x76.png,
 				Assets.xcassets,
-				LaunchScreen.storyboard,
 				DefaultIcon.png,
 				Localizable.xcstrings,
 				Settings.bundle,
