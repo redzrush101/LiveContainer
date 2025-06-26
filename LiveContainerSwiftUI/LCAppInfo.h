@@ -33,6 +33,7 @@ typedef NS_ENUM(NSInteger, LCOrientationLock){
 @property bool autoSaveDisabled;
 @property bool dontSign;
 @property bool spoofSDKVersion;
+@property NSDate* lastLaunched;
 
 @property bool is32bit;
 
