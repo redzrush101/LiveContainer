@@ -82,10 +82,10 @@ class LCAppSortManager: ObservableObject {
     func getSortedApps(_ appList: [LCAppModel], sortType: AppSortType, customSortOrder: [String]) -> [LCAppModel] {
         switch sortType {
         case .alphabetical:
-            return appList.sorted { $0.appInfo.displayName().localizedCaseInsensitiveCompare($1.appInfo.displayName()) == .orderedAscending }
+            return appList.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
             
         case .reverseAlphabetical:
-            return appList.sorted { $0.appInfo.displayName().localizedCaseInsensitiveCompare($1.appInfo.displayName()) == .orderedDescending }
+            return appList.sorted { $0.appInfo.displayName() > $1.appInfo.displayName() }
             
         case .lastLaunched:
             let appsWithLaunchDate = appList.compactMap { app -> (LCAppModel, Date)? in
@@ -98,7 +98,7 @@ class LCAppSortManager: ObservableObject {
             let appsWithoutLaunchDate = appList.filter { app in
                 return app.appInfo.lastLaunched == nil
             }
-            .sorted { $0.appInfo.displayName().localizedCaseInsensitiveCompare($1.appInfo.displayName()) == .orderedAscending }
+            .sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
             
             return appsWithLaunchDate + appsWithoutLaunchDate
             
