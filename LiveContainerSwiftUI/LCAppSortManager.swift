@@ -80,24 +80,22 @@ class LCAppSortManager: ObservableObject {
     }
     
     func getSortedApps(_ appList: [LCAppModel], sortType: AppSortType, customSortOrder: [String]) -> [LCAppModel] {
-        var apps = appList
-        
         switch sortType {
         case .alphabetical:
-            return apps.sorted { $0.appInfo.displayName().localizedCaseInsensitiveCompare($1.appInfo.displayName()) == .orderedAscending }
+            return appList.sorted { $0.appInfo.displayName().localizedCaseInsensitiveCompare($1.appInfo.displayName()) == .orderedAscending }
             
         case .reverseAlphabetical:
-            return apps.sorted { $0.appInfo.displayName().localizedCaseInsensitiveCompare($1.appInfo.displayName()) == .orderedDescending }
+            return appList.sorted { $0.appInfo.displayName().localizedCaseInsensitiveCompare($1.appInfo.displayName()) == .orderedDescending }
             
         case .lastLaunched:
-            let appsWithLaunchDate = apps.compactMap { app -> (LCAppModel, Date)? in
+            let appsWithLaunchDate = appList.compactMap { app -> (LCAppModel, Date)? in
                 guard let launchDate = app.appInfo.lastLaunched else { return nil }
                 return (app, launchDate)
             }
             .sorted { $0.1 > $1.1 } // Sort by date, newest first
             .map { $0.0 } // Extract just the app models
 
-            let appsWithoutLaunchDate = apps.filter { app in
+            let appsWithoutLaunchDate = appList.filter { app in
                 return app.appInfo.lastLaunched == nil
             }
             .sorted { $0.appInfo.displayName().localizedCaseInsensitiveCompare($1.appInfo.displayName()) == .orderedAscending }
@@ -105,7 +103,7 @@ class LCAppSortManager: ObservableObject {
             return appsWithLaunchDate + appsWithoutLaunchDate
             
         case .custom:
-            return sortByCustomOrder(apps, customSortOrder: customSortOrder)
+            return sortByCustomOrder(appList, customSortOrder: customSortOrder)
         }
     }
     
