@@ -77,18 +77,17 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @State private var customSortViewPresent = false
     
     @EnvironmentObject private var sharedModel : SharedModel
-    @EnvironmentObject private var sharedAppSortManager : LCAppSortManager
     
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     
     @ObservedObject var searchContext = SearchContext()
     var sortedApps: [LCAppModel] {
-        return sharedAppSortManager.getSortedApps(sharedModel.apps, sortType: sharedAppSortManager.appSortType, customSortOrder: sharedAppSortManager.customSortOrder)
+        return sharedModel.apps
     }
     
     var sortedHiddenApps: [LCAppModel] {
-        return sharedAppSortManager.getSortedApps(sharedModel.hiddenApps, sortType: sharedAppSortManager.appSortType, customSortOrder: sharedAppSortManager.customSortOrder)
+        return sharedModel.hiddenApps
     }
     
     var filteredApps: [LCAppModel] {
@@ -257,30 +256,23 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                    // Add the last launched toggle
-                    Toggle(isOn: $sharedAppSortManager.sortByLastLaunched) {
-                        Label("Sort by Last Opened", systemImage: "clock")
-                    }
-                    
-                    Divider()
-
-                    Picker("Sort by", selection: $sharedAppSortManager.appSortType) {
-                        ForEach(AppSortType.allCases, id: \.self) { sortType in
-                            Label(sortType.displayName, systemImage: sortType.systemImage)
-                                .tag(sortType)
+                        Picker("Sort by", selection: $sharedAppSortManager.appSortType) {
+                            ForEach(AppSortType.allCases, id: \.self) { sortType in
+                                Label(sortType.displayName, systemImage: sortType.systemImage)
+                                    .tag(sortType)
+                            }
                         }
-                    }
 
-                    Divider()
-                    
-                    Button {
-                        customSortViewPresent = true
+                        Divider()
+                        
+                        Button {
+                            customSortViewPresent = true
+                        } label: {
+                            Label("lc.appList.sort.customManage".loc, systemImage: "slider.horizontal.3")
+                        }
                     } label: {
-                        Label("lc.appList.sort.customManage".loc, systemImage: "slider.horizontal.3")
+                        Label("lc.appList.sort".loc, systemImage: "ellipsis.circle")
                     }
-                } label: {
-                    Label("lc.appList.sort".loc, systemImage: "ellipsis.circle")
-                }
                 }
             }
         }

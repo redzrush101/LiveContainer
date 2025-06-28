@@ -3781,6 +3781,17 @@
         }
       }
     },
+    "lc.appList.sort.lastLaunched" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last Opened"
+          }
+        }
+      }
+    },
     "lc.apppSettings.orientationLock" : {
       "extractionState" : "manual",
       "localizations" : {
