@@ -633,4 +633,13 @@ uint32_t dyld_get_sdk_version(const struct mach_header* mh);
     [self save];
 }
 
+- (NSDate*)installationDate {
+    return _info[@"installationDate"];
+}
+
+- (void)setInstallationDate:(NSDate*)installationDate {
+    _info[@"installationDate"] = installationDate;
+    [self save];
+}
+
 @end

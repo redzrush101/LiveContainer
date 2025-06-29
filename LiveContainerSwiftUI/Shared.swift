@@ -12,39 +12,6 @@ import SafariServices
 import Security
 import Combine
 
-enum AppSortType: String, CaseIterable {
-    case alphabetical = "alphabetical"
-    case reverseAlphabetical = "reverse_alphabetical"
-    case lastLaunched = "last_launched"
-    case custom = "custom"
-    
-    var displayName: String {
-        switch self {
-        case .alphabetical:
-            return "lc.appList.sort.alphabetical".loc
-        case .reverseAlphabetical:
-            return "lc.appList.sort.reverseAlphabetical".loc
-        case .lastLaunched:
-            return "lc.appList.sort.lastLaunched".loc
-        case .custom:
-            return "lc.appList.sort.custom".loc
-        }
-    }
-    
-    var systemImage: String {
-        switch self {
-        case .alphabetical:
-            return "chevron.down"
-        case .reverseAlphabetical:
-            return "chevron.up"
-        case .lastLaunched:
-            return "clock"
-        case .custom:
-            return "list.bullet"
-        }
-    }
-}
-
 struct LCPath {
     public static let docPath = {
         let fm = FileManager()

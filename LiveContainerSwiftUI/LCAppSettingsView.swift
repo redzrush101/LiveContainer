@@ -278,6 +278,23 @@ struct LCAppSettingsView : View{
             } footer: {
                 Text("lc.appSettings.forceSignDesc".loc)
             }
+            
+            Section {
+                HStack {
+                    Text("lc.appList.sort.lastLaunched".loc)
+                    Spacer()
+                    Text(formatDate(date: appInfo.lastLaunched))
+                        .foregroundStyle(.gray)
+                }
+                HStack {
+                    Text("lc.appList.sort.installationDate".loc)
+                    Spacer()
+                    Text(formatDate(date: appInfo.installationDate))
+                        .foregroundStyle(.gray)
+                }
+            } header: {
+                Text("lc.common.statistics")
+            }
 
         }
         .navigationTitle(appInfo.displayName())
@@ -496,6 +513,18 @@ struct LCAppSettingsView : View{
             errorInfo = error.localizedDescription
             errorShow = true
         }
+    }
+    
+    func formatDate(date: Date?) -> String {
+        guard let date else {
+            return "lc.common.unknown".loc
+        }
+        
+        let formatter1 = DateFormatter()
+        formatter1.dateStyle = .short
+        formatter1.timeStyle = .medium
+        return formatter1.string(from: date)
+    
     }
 }
 
