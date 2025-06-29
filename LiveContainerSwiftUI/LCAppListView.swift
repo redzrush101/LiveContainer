@@ -83,7 +83,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
     
     @ObservedObject var searchContext = SearchContext()
-    
     var sortedApps: [LCAppModel] {
         return sharedModel.apps
     }
@@ -258,7 +257,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-
                         Picker("Sort by", selection: $sharedAppSortManager.appSortType) {
                             ForEach(AppSortType.allCases, id: \.self) { sortType in
                                 Label(sortType.displayName, systemImage: sortType.systemImage)

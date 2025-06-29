@@ -19,7 +19,7 @@ class LCAppSortManager: ObservableObject {
             applySort()
         }
     }
-    
+
     @Published var customSortOrder: [String] {
         didSet {
             LCUtils.appGroupUserDefault.set(customSortOrder, forKey: "LCCustomSortOrder")
@@ -83,8 +83,25 @@ class LCAppSortManager: ObservableObject {
         switch sortType {
         case .alphabetical:
             return appList.sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
+            
         case .reverseAlphabetical:
             return appList.sorted { $0.appInfo.displayName() > $1.appInfo.displayName() }
+            
+        case .lastLaunched:
+            let appsWithLaunchDate = appList.compactMap { app -> (LCAppModel, Date)? in
+                guard let launchDate = app.appInfo.lastLaunched else { return nil }
+                return (app, launchDate)
+            }
+            .sorted { $0.1 > $1.1 } // Sort by date, newest first
+            .map { $0.0 } // Extract just the app models
+
+            let appsWithoutLaunchDate = appList.filter { app in
+                return app.appInfo.lastLaunched == nil
+            }
+            .sorted { $0.appInfo.displayName() < $1.appInfo.displayName() }
+            
+            return appsWithLaunchDate + appsWithoutLaunchDate
+            
         case .custom:
             return sortByCustomOrder(appList, customSortOrder: customSortOrder)
         }
