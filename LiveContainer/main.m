@@ -154,6 +154,9 @@ int hook__NSGetExecutablePath_overwriteExecPath(char*** dyldApiInstancePtr, char
         assert(tpro_ret);
     }
     *mainExecutablePathPtr = newPath;
+    if(ret != KERN_SUCCESS) {
+        os_thread_self_restrict_tpro_to_ro();
+    }
 
     return 0;
 }
