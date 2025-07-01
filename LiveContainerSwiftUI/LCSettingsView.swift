@@ -240,7 +240,7 @@ struct LCSettingsView: View {
                                     .foregroundColor(.secondary)
                                     .font(.caption)
                             }
-                            Slider(value: $dockWidth, in: 70...110) {
+                            Slider(value: $dockWidth, in: 60...110) {
                                 Text("lc.settings.dockWidth".loc)
                             }
                             .tint(.accentColor)

@@ -159,7 +159,16 @@ class AppInfoProvider {
         
         // MARK: - Animation & Interaction
         static let dockHiddenOffset: CGFloat = 25.0
-        static let hideGestureThreshold: CGFloat = 60.0
+        static var hideGestureThreshold: CGFloat {
+            get {
+                let ans = LCUtils.appGroupUserDefault.double(forKey: "LCDockWidth")
+                if ans != 0 {
+                    return ans / 2
+                } else {
+                    return 40
+                }
+            }
+        }
         static let edgeSwipeThreshold: CGFloat = 30.0
         
         static let standardAnimationDuration: TimeInterval = 0.3
@@ -503,30 +512,8 @@ class AppInfoProvider {
         }
     }
     
-    func openApp(uuid: String) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            // Try to bring existing multitask view to front first
-            if self.bringMultitaskViewToFront(uuid: uuid) {
-                return
-            }
-            
-            // If no existing view found, try to open new window (iOS 16.1+)
-            if #available(iOS 16.1, *) {
-                if let multitaskWindowManagerClass = NSClassFromString("MultitaskWindowManager") {
-                    let selector = NSSelectorFromString("openExistingAppWindowWithDataUUID:")
-                    if multitaskWindowManagerClass.responds(to: selector) {
-                        let methodImpl = multitaskWindowManagerClass.method(for: selector)
-                        typealias FunctionType = @convention(c) (AnyObject, Selector, String) -> Bool
-                        let function = unsafeBitCast(methodImpl, to: FunctionType.self)
-                        let _ = function(multitaskWindowManagerClass, selector, uuid)
-                    }
-                }
-            }
-        }
-    }
-    
     // Find and bring corresponding multitask view to front
-    private func bringMultitaskViewToFront(uuid: String) -> Bool {
+    func bringMultitaskViewToFront(uuid: String) -> Bool {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
             return false
         }
@@ -747,11 +734,7 @@ public struct MultitaskDockSwiftView: View {
                     ForEach(dockManager.apps.indices, id: \.self) { index in
                         let app = dockManager.apps[index]
                         AppIconView(app: app, showTooltip: $showTooltip, tooltipApp: $tooltipApp)
-                            .onTapGesture {
-                                if !self.isMoving {
-                                    dockManager.openApp(uuid: app.appUUID)
-                                }
-                            }
+
                     }
                 }
             }
@@ -1018,6 +1001,7 @@ struct AppIconView: View {
                 isPressed = false
                 let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
                 impactFeedback.impactOccurred()
+                let _ = dockManager.bringMultitaskViewToFront(uuid: app.appUUID)
             }
         )
         .contentShape(Rectangle())
