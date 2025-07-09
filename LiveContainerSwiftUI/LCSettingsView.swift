@@ -530,7 +530,7 @@ struct LCSettingsView: View {
     }
     
     func resetSymbolOffsets() {
-        UserDefaults.lcShared().removeObject(forKey: "symbolOffsetCache")
+        LCUtils.appGroupUserDefault.removeObject(forKey: "symbolOffsetCache")
     }
     
     func importCertificate() async {
