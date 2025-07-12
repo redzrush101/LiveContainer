@@ -4,6 +4,7 @@
 #import "UIKitPrivate+MultitaskSupport.h"
 #import "PiPManager.h"
 #import "../LiveContainer/Localization.h"
+#import "utils.h"
 
 @implementation RBSTarget(hook)
 + (instancetype)hook_targetWithPid:(pid_t)pid environmentIdentifier:(NSString *)environmentIdentifier {
@@ -35,8 +36,6 @@ void UIKitFixesInit(void) {
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) NSString* windowName;
 @property(nonatomic) int pid;
-@property(nonatomic) CGFloat scaleRatio;
-@property(nonatomic) BOOL isMaximized;
 @property(nonatomic) CGRect originalFrame;
 @property(nonatomic) UIBarButtonItem *maximizeButton;
 
@@ -44,7 +43,11 @@ void UIKitFixesInit(void) {
 
 @implementation DecoratedAppSceneView
 - (instancetype)initWithExtension:(NSExtension *)extension identifier:(NSUUID *)identifier windowName:(NSString*)windowName dataUUID:(NSString*)dataUUID {
-    self = [super initWithFrame:CGRectMake(0, 100, 320, 480 + 44)];
+    if(UIInterfaceOrientationIsLandscape(UIApplication.sharedApplication.statusBarOrientation)) {
+        self = [super initWithFrame:CGRectMake(0, 0, 480, 320 + 44)];
+    } else {
+        self = [super initWithFrame:CGRectMake(0, 0, 320, 480 + 44)];
+    }
     AppSceneViewController* appSceneView = [[AppSceneViewController alloc] initWithExtension:extension frame:CGRectMake(0, 0, self.contentView.bounds.size.width, self.contentView.bounds.size.height) identifier:identifier dataUUID:dataUUID delegate:self];
     appSceneView.view.layer.anchorPoint = CGPointMake(0, 0);
     appSceneView.view.layer.position = CGPointMake(0, 0);
@@ -102,7 +105,13 @@ void UIKitFixesInit(void) {
     UIBarButtonItem *closeButton = [[UIBarButtonItem alloc] initWithImage:closeImage style:UIBarButtonItemStylePlain target:self action:@selector(closeWindow)];
     closeButton.tintColor = [UIColor systemRedColor];
     
-    self.navigationItem.rightBarButtonItems = @[closeButton, self.maximizeButton, minimizeButton];
+    NSArray *barButtonItems = @[closeButton, self.maximizeButton, minimizeButton];
+    if([NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"]) {
+        // resize handle overlaps the close button, so put the buttons on the left
+        self.navigationItem.leftBarButtonItems = barButtonItems;
+    } else {
+        self.navigationItem.rightBarButtonItems = barButtonItems;
+    }
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self adjustNavigationBarButtonSpacingWithNegativeSpacing:-8.0 rightMargin:-4.0];
@@ -110,6 +119,7 @@ void UIKitFixesInit(void) {
     
     self.windowName = windowName;
     self.navigationItem.title = windowName;
+    self.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     
     [self.contentView insertSubview:appSceneView.view atIndex:0];
 
@@ -179,6 +189,7 @@ void UIKitFixesInit(void) {
                      } 
                      completion:^(BOOL finished) {
                          self.hidden = YES;
+                         self.transform = CGAffineTransformIdentity;
                      }];
 }
 
@@ -188,8 +199,9 @@ void UIKitFixesInit(void) {
                               delay:0 
                             options:UIViewAnimationOptionCurveEaseInOut 
                          animations:^{
-                             self.frame = self.originalFrame;
-                         } 
+                             CGSize windowSize = self.window.frame.size;
+                             self.frame = CGRectMake(windowSize.width * self.originalFrame.origin.x, windowSize.height * self.originalFrame.origin.y, self.originalFrame.size.width, self.originalFrame.size.height);
+                         }
                          completion:^(BOOL finished) {
                              self.isMaximized = NO;
                              UIImage *maximizeImage = [UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right.circle"];
@@ -199,10 +211,12 @@ void UIKitFixesInit(void) {
                              [self.appSceneView resizeWindowWithFrame:CGRectMake(0, 0, size.width / self.scaleRatio, size.height / self.scaleRatio)];
                          }];
     } else {
-        self.originalFrame = self.frame;
+        // save origin as normalized coordinates
+        CGSize windowSize = self.window.frame.size;
+        self.originalFrame = CGRectMake(self.frame.origin.x/windowSize.width, self.frame.origin.y/windowSize.height, self.frame.size.width, self.frame.size.height);
         
-        UIEdgeInsets safeAreaInsets = UIApplication.sharedApplication.keyWindow.safeAreaInsets;
-        CGRect maxFrame = UIEdgeInsetsInsetRect(UIScreen.mainScreen.bounds, safeAreaInsets);
+        UIEdgeInsets safeAreaInsets = self.window.safeAreaInsets;
+        CGRect maxFrame = UIEdgeInsetsInsetRect(self.window.frame, safeAreaInsets);
         
         [UIView animateWithDuration:0.3 
                               delay:0 
@@ -270,5 +284,31 @@ void UIKitFixesInit(void) {
         
         [self findAndAdjustButtonBarStackView:subview withSpacing:spacing rightMargin:margin];
     }
+}
+
+- (void)willMoveToSuperview:(UIView *)newSuperview {
+    [super willMoveToSuperview:newSuperview];
+    NSUserDefaults *defaults = NSUserDefaults.lcSharedDefaults;
+    if(newSuperview) {
+        [defaults addObserver:self forKeyPath:@"LCMultitaskBottomWindowBar" options:NSKeyValueObservingOptionNew context:NULL];
+    } else {
+        [defaults removeObserver:self forKeyPath:@"LCMultitaskBottomWindowBar"];
+    }
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    BOOL bottomWindowBar = [change[NSKeyValueChangeNewKey] boolValue];
+    [UIView animateWithDuration:0.3 animations:^{
+        if(bottomWindowBar) {
+            self.navigationItem.leftBarButtonItems = self.navigationItem.rightBarButtonItems;
+            self.navigationItem.rightBarButtonItems = nil;
+            [self addArrangedSubview:self.navigationBar];
+        } else {
+            self.navigationItem.rightBarButtonItems = self.navigationItem.leftBarButtonItems;
+            self.navigationItem.leftBarButtonItems = nil;
+            [self insertArrangedSubview:self.navigationBar atIndex:0];
+        }
+        [self adjustNavigationBarButtonSpacingWithNegativeSpacing:-8.0 rightMargin:-4.0];
+    }];
 }
 @end

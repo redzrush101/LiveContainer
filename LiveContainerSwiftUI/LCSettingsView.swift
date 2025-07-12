@@ -47,6 +47,7 @@ struct LCSettingsView: View {
     
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
+    @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCDockWidth", store: LCUtils.appGroupUserDefault) var dockWidth: Double = 80
     
     @State var store : Store = .Unknown
@@ -228,6 +229,10 @@ struct LCSettingsView: View {
                     }
                     Toggle(isOn: $launchInMultitaskMode) {
                         Text("lc.settings.autoLaunchInMultitaskMode".loc)
+                    }
+                    
+                    Toggle(isOn: $bottomWindowBar) {
+                        Text("lc.settings.bottomWindowBar".loc)
                     }
                     
                     if multitaskMode == .virtualWindow {
@@ -530,7 +535,7 @@ struct LCSettingsView: View {
     }
     
     func resetSymbolOffsets() {
-        UserDefaults.lcShared().removeObject(forKey: "symbolOffsetCache")
+        LCUtils.appGroupUserDefault.removeObject(forKey: "symbolOffsetCache")
     }
     
     func importCertificate() async {

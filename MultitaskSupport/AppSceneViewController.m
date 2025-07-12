@@ -5,6 +5,7 @@
 //  Created by s s on 2025/5/17.
 //
 #import "AppSceneViewController.h"
+#import "DecoratedAppSceneView.h"
 #import "LiveContainerSwiftUI-Swift.h"
 #import "../LiveContainerSwiftUI/LCUtils.h"
 #import "PiPManager.h"
@@ -12,6 +13,7 @@
 @implementation AppSceneViewController {
     int resizeDebounceToken;
     CGRect currentFrame;
+    CGPoint normalizedOrigin;
     bool isNativeWindow;
     NSUUID* identifier;
 }
@@ -171,10 +173,31 @@
         newSettings.interfaceOrientation = baseSettings.interfaceOrientation;
         newSettings.deviceOrientation = baseSettings.deviceOrientation;
         newSettings.foreground = YES;
-        if(UIInterfaceOrientationIsLandscape(baseSettings.interfaceOrientation)) {
-            newSettings.frame = CGRectMake(0, 0, currentFrame.size.height, currentFrame.size.width);
+        
+        DecoratedAppSceneView *sceneView = (id)self.delegate;
+        UIEdgeInsets safeAreaInsets = self.view.window.safeAreaInsets;
+        CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, safeAreaInsets);
+        CGRect newFrame = currentFrame;
+        if(sceneView.isMaximized) {
+            sceneView.frame = maxFrame;
         } else {
-            newSettings.frame = CGRectMake(0, 0, currentFrame.size.width, currentFrame.size.height);
+            CGPoint center = sceneView.center;
+            CGRect frame = CGRectZero;
+            frame.size.width = MIN(currentFrame.size.width*sceneView.scaleRatio, maxFrame.size.width);
+            frame.size.height = MIN(currentFrame.size.height*sceneView.scaleRatio, maxFrame.size.height);
+            CGFloat oobOffset = MAX(30, frame.size.width - 30);
+            frame.origin.x = MAX(maxFrame.origin.x - oobOffset, MIN(CGRectGetMaxX(maxFrame) - frame.size.width + oobOffset, center.x - frame.size.width / 2));
+            frame.origin.y = MAX(maxFrame.origin.y, MIN(center.y - frame.size.height / 2, CGRectGetMaxY(maxFrame) - frame.size.height));
+            [UIView animateWithDuration:0.3 animations:^{
+                sceneView.frame = frame;
+            }];
+        }
+        newFrame = CGRectMake(0, 0, sceneView.frame.size.width/sceneView.scaleRatio, (sceneView.frame.size.height - sceneView.navigationBar.frame.size.height)/sceneView.scaleRatio);
+        
+        if(UIInterfaceOrientationIsLandscape(baseSettings.interfaceOrientation)) {
+            newSettings.frame = CGRectMake(0, 0, newFrame.size.height, newFrame.size.width);
+        } else {
+            newSettings.frame = CGRectMake(0, 0, newFrame.size.width, newFrame.size.height);
         }
         [self.presenter.scene updateSettings:newSettings withTransitionContext:newContext completion:nil];
     }

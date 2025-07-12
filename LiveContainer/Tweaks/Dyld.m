@@ -366,3 +366,53 @@ void DyldHooksInit(bool hideLiveContainer, uint32_t spoofSDKVersion) {
 void* getGuestAppHeader(void) {
     return (void*)orig_dyld_get_image_header(appMainImageIndex);
 }
+
+#pragma mark - Fix black screen
+#if !TARGET_OS_SIMULATOR
+void hook_libdyld_os_unfair_recursive_lock_lock_with_options(void* ptr, void* lock, uint32_t options) {
+    os_unfair_recursive_lock_trylock(lock);
+}
+void hook_libdyld_os_unfair_recursive_lock_unlock(void* ptr, void* lock) {
+    os_unfair_recursive_lock_tryunlock4objc(lock);
+}
+#endif
+
+void *dlopenBypassingLock(const char *path, int mode) {
+    const char *libdyldPath = "/usr/lib/system/libdyld.dylib";
+    mach_header_u *libdyldHeader = LCGetLoadedImageHeader(0, libdyldPath);
+    assert(libdyldHeader != NULL);
+#if !TARGET_OS_SIMULATOR
+    NSString *lockUnlockPtrName = @"dyld4::LibSystemHelpers::os_unfair_recursive_lock_lock_with_options";
+    void **lockUnlockPtr = getCachedSymbol(lockUnlockPtrName, libdyldHeader);
+    if(!lockUnlockPtr) {
+        void **vtableLibSystemHelpers = litehook_find_dsc_symbol(libdyldPath, "__ZTVN5dyld416LibSystemHelpersE");
+        void *lockFunc = litehook_find_dsc_symbol(libdyldPath, "__ZNK5dyld416LibSystemHelpers42os_unfair_recursive_lock_lock_with_optionsEP26os_unfair_recursive_lock_s24os_unfair_lock_options_t");
+        void *unlockFunc = litehook_find_dsc_symbol(libdyldPath, "__ZNK5dyld416LibSystemHelpers31os_unfair_recursive_lock_unlockEP26os_unfair_recursive_lock_s");
+        
+        // Find the pointers in vtable storing the lock and unlock functions, they must be there or this loop will hit unreadable memory region and crash
+        while(!lockUnlockPtr) {
+            if(vtableLibSystemHelpers[0] == lockFunc) {
+                lockUnlockPtr = vtableLibSystemHelpers;
+                // unlockPtr stands next to lockPtr in vtable
+                NSCAssert(vtableLibSystemHelpers[1] == unlockFunc, @"dyld has changed: lock and unlock functions are not next to each other");
+                break;
+            }
+            vtableLibSystemHelpers++;
+        }
+        saveCachedSymbol(lockUnlockPtrName, libdyldHeader, (uintptr_t)lockUnlockPtr - (uintptr_t)libdyldHeader);
+    }
+    
+    kern_return_t ret;
+    ret = builtin_vm_protect(mach_task_self(), (mach_vm_address_t)lockUnlockPtr, sizeof(uintptr_t[2]), false, PROT_READ | PROT_WRITE | VM_PROT_COPY);
+    assert(ret == KERN_SUCCESS);
+    lockUnlockPtr[0] = hook_libdyld_os_unfair_recursive_lock_lock_with_options;
+    lockUnlockPtr[1] = hook_libdyld_os_unfair_recursive_lock_unlock;
+    void *result = dlopen(path, mode);
+    // dlopen will internally vm_protect to ro, so we don't need to do it here
+#else
+    litehook_rebind_symbol(libdyldHeader, os_unfair_recursive_lock_lock_with_options, os_unfair_recursive_lock_trylock, nil);
+    litehook_rebind_symbol(libdyldHeader, os_unfair_recursive_lock_unlock, os_unfair_recursive_lock_tryunlock4objc, nil);
+    void *result = dlopen(path, mode);
+#endif
+    return result;
+}
