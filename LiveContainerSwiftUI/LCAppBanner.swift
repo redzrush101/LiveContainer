@@ -122,9 +122,9 @@ struct LCAppBanner : View {
                          }
                      }
                      
-                    Task{ await runApp(multitask: true); print("Task Completed") }
+                    Task{ await runApp(multitask: true) }
                 } else {
-                    Task{ await runApp(multitask: false); print("Task Completed") }
+                    Task{ await runApp(multitask: false) }
                 }
             } label: {
                 if !model.isSigningInProgress {

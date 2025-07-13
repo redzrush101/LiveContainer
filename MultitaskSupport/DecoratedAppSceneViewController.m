@@ -36,7 +36,6 @@ void UIKitFixesInit(void) {
 @property(nonatomic) AppSceneViewController* appSceneVC;
 @property(nonatomic) ResizeHandleView* resizeHandle;
 @property(nonatomic) NSArray* activatedVerticalConstraints;
-@property(nonatomic) NSString *sceneID;
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) NSString* windowName;
 @property(nonatomic) int pid;

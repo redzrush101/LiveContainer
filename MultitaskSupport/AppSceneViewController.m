@@ -225,7 +225,7 @@
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-
+    [self.view.window.windowScene _registerSettingsDiffActionArray:@[self] forKey:self.sceneID];
 }
 
 
