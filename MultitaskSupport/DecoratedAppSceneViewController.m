@@ -80,10 +80,10 @@ void UIKitFixesInit(void) {
             UIPasteboard.generalPasteboard.string = @(self.appSceneVC.pid).stringValue;
         }],
         [UIAction actionWithTitle:@"lc.multitask.enablePip".loc image:[UIImage systemImageNamed:@"pip.enter"] identifier:nil handler:^(UIAction * _Nonnull action) {
-            if ([PiPManager.shared isPiPWithView:self.appSceneVC.view]) {
+            if ([PiPManager.shared isPiPWithVC:self.appSceneVC]) {
                 [PiPManager.shared stopPiP];
             } else {
-//                [PiPManager.shared startPiPWithView:self.appSceneVC.view contentView:self.contentView extension:extension];
+                [PiPManager.shared startPiPWithVC:self.appSceneVC];
             }
         }],
         [UICustomViewMenuElement elementWithViewProvider:^UIView *(UICustomViewMenuElement *element) {
@@ -330,12 +330,12 @@ void UIKitFixesInit(void) {
     [UIView animateWithDuration:0.3 animations:^{
         DecoratedFloatingView* rootView = (DecoratedFloatingView*)self.view;
         if(bottomWindowBar) {
-            self.navigationItem.leftBarButtonItems = self.navigationItem.rightBarButtonItems;
-            self.navigationItem.rightBarButtonItems = nil;
+            rootView.navigationItem.leftBarButtonItems = rootView.navigationItem.rightBarButtonItems;
+            rootView.navigationItem.rightBarButtonItems = nil;
             [rootView addArrangedSubview:rootView.navigationBar];
         } else {
-            self.navigationItem.rightBarButtonItems = rootView.navigationItem.leftBarButtonItems;
-            self.navigationItem.leftBarButtonItems = nil;
+            rootView.navigationItem.rightBarButtonItems = rootView.navigationItem.leftBarButtonItems;
+            rootView.navigationItem.leftBarButtonItems = nil;
             [rootView insertArrangedSubview:rootView.navigationBar atIndex:0];
         }
         

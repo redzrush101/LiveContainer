@@ -22,9 +22,11 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) id<AppSceneViewDelegate> delegate;
 @property(nonatomic) BOOL isAppRunning;
 @property(nonatomic) CGFloat scaleRatio;
+@property(nonatomic) UIView* contentView;
 
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewDelegate>)delegate error:(NSError**)error;
 - (void)setScale:(float)scale;
 - (void)terminate;
+- (void)setBackgroundNotificationEnabled:(bool)enabled;
 @end
 

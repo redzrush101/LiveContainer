@@ -24,7 +24,6 @@
 @property(nonatomic) UIMutableApplicationSceneSettings *settings;
 @property(nonatomic) NSString *sceneID;
 @property(nonatomic) NSExtension* extension;
-@property(nonatomic) UIView* contentView;
 @property(nonatomic) bool isAppTerminationCleanUpCalled;
 @end
 
@@ -109,7 +108,6 @@
     settings.deviceOrientation = UIDevice.currentDevice.orientation;
     settings.interfaceOrientation = UIApplication.sharedApplication.statusBarOrientation;
     if(UIInterfaceOrientationIsLandscape(settings.interfaceOrientation)) {
-        NSLog(@"self.view.frame= %@", NSStringFromCGRect(self.view.frame));
         settings.frame = CGRectMake(0, 0, self.view.frame.size.height, self.view.frame.size.width);
     } else {
         settings.frame = CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height);
@@ -276,6 +274,16 @@
         self.delegate = nil;
         [MultitaskManager unregisterMultitaskContainerWithContainer:self.dataUUID];
     });
+}
+
+- (void)setBackgroundNotificationEnabled:(bool)enabled {
+    if(enabled) {
+        // Re-add UIApplicationDidEnterBackgroundNotification
+        [NSNotificationCenter.defaultCenter addObserver:self.extension selector:@selector(_hostDidEnterBackgroundNote:) name:UIApplicationDidEnterBackgroundNotification object:UIApplication.sharedApplication];
+    } else {
+        // Remove UIApplicationDidEnterBackgroundNotification so apps like YouTube can continue playing video
+        [NSNotificationCenter.defaultCenter removeObserver:self.extension name:UIApplicationDidEnterBackgroundNotification object:UIApplication.sharedApplication];
+    }
 }
 
 @end
