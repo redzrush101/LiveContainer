@@ -90,6 +90,7 @@
     [self.presenter activate];
     __weak typeof(self) weakSelf = self;
     [extension setRequestInterruptionBlock:^(NSUUID *uuid) {
+        if(![uuid isEqual:identifier]) return;
         NSLog(@"Request %@ interrupted.", uuid);
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf displayAppTerminatedTextIfNeeded];
@@ -148,9 +149,6 @@
         [self.delegate appDidExit];
         self.delegate = nil;
         [MultitaskManager unregisterMultitaskContainerWithContainer:self.dataUUID];
-        
-        MultitaskDockManager *dock = [MultitaskDockManager shared];
-        [dock removeRunningApp:self.dataUUID];
     }
 }
 

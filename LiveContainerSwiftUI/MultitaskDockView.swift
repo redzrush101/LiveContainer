@@ -733,8 +733,7 @@ public struct MultitaskDockSwiftView: View {
                             dockManager.toggleDockCollapse()
                         }
                     
-                    ForEach(dockManager.apps.indices, id: \.self) { index in
-                        let app = dockManager.apps[index]
+                    ForEach(dockManager.apps) { app in
                         AppIconView(app: app, showTooltip: $showTooltip, tooltipApp: $tooltipApp)
 
                     }
