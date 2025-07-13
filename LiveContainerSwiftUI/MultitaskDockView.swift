@@ -253,10 +253,25 @@ class AppInfoProvider {
             name: UserDefaults.didChangeNotification,
             object: LCUtils.appGroupUserDefault
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(deviceOrientationDidChange),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil
+        )
     }
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        NotificationCenter.default.removeObserver(self, name: UIDevice.orientationDidChangeNotification, object: nil)
+    }
+
+    @objc private func deviceOrientationDidChange() {
+        DispatchQueue.main.async {
+            if self.isVisible {
+                self.updateDockFrame()
+            }
+        }
     }
     
     @objc private func userDefaultsDidChange() {
@@ -278,7 +293,7 @@ class AppInfoProvider {
     }
 
     private func updateDockFrame(animated: Bool = true) {
-        guard isVisible, let hostingController = hostingController else { return }
+        guard let hostingController = hostingController else { return }
 
         let screenBounds = keyWindow!.bounds
         let currentDockWidth = self.dockWidth
@@ -384,16 +399,18 @@ class AppInfoProvider {
             let currentDockWidth = self.dockWidth
             let initialHeight = Constants.initialDockShowHeight
             
-            hostingController.view.frame = CGRect(
-                x: screenBounds.width - currentDockWidth,
-                y: (screenBounds.height - initialHeight) / 2,
-                width: currentDockWidth,
-                height: initialHeight
-            )
+            // If not already in view hierarchy, add it
+            if hostingController.view.superview == nil {
+                keyWindow.addSubview(hostingController.view)
+                hostingController.view.frame = CGRect(
+                    x: screenBounds.width - currentDockWidth,
+                    y: (screenBounds.height - initialHeight) / 2,
+                    width: currentDockWidth,
+                    height: initialHeight
+                )
+            }
             
             self.updateDockFrame(animated: false) 
-            
-            keyWindow.addSubview(hostingController.view)
             
             self.setupEdgeGestureRecognizers()
             
@@ -428,10 +445,14 @@ class AppInfoProvider {
                 hostingController.view.alpha = 0
                 let finalScale = Constants.initialScale
                 hostingController.view.transform = CGAffineTransform(scaleX: finalScale, y: finalScale)
+                // Move off-screen to hide, but keep in view hierarchy
+                let screenBounds = UIScreen.main.bounds
+                let currentDockWidth = self.dockWidth
+                let targetX = self.calculateTargetX(isDockHidden: true, isOnRightSide: hostingController.view.frame.midX > screenBounds.width / 2, dockWidth: currentDockWidth, screenWidth: screenBounds.width)
+                let targetY = hostingController.view.frame.origin.y // Keep current Y
+                hostingController.view.frame.origin = CGPoint(x: targetX, y: targetY)
             } completion: { _ in
-                hostingController.view.removeFromSuperview()
                 self.isVisible = false
-
                 hostingController.view.transform = .identity
             }
         }
