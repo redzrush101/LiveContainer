@@ -330,9 +330,14 @@ class AppInfoProvider {
         }
     }
 
-    private func calculateTargetX(isDockHidden: Bool, isOnRightSide: Bool, dockWidth: CGFloat, screenWidth: CGFloat) -> CGFloat {
+    func calculateTargetX(isDockHidden: Bool, isOnRightSide: Bool, dockWidth: CGFloat, screenWidth: CGFloat) -> CGFloat {
         if isDockHidden {
-            return isOnRightSide ? screenWidth - Constants.dockHiddenOffset : -dockWidth + Constants.dockHiddenOffset
+            let safeInsets = self.safeAreaInsets
+            if isOnRightSide {
+                return (screenWidth - safeInsets.right) - Constants.dockHiddenOffset
+            } else {
+                return safeInsets.left - dockWidth + Constants.dockHiddenOffset
+            }
         } else {
             return isOnRightSide ? screenWidth - dockWidth : 0
         }
@@ -512,7 +517,7 @@ class AppInfoProvider {
         let horizontalDistance = abs(translation.width)
         let verticalDistance = abs(translation.height)
         
-        guard horizontalDistance > verticalDistance, horizontalDistance > Constants.hideGestureThreshold else {
+        guard !self.isDockHidden, horizontalDistance > verticalDistance, horizontalDistance > Constants.hideGestureThreshold else {
             return false
         }
         
@@ -841,11 +846,9 @@ public struct MultitaskDockSwiftView: View {
                 let targetX: CGFloat
                 if dockManager.isDockHidden {
                     let isOnRightSide = hcFrame.origin.x > screenBounds.width / 2
-                    targetX = isOnRightSide ? 
-                        screenBounds.width - MultitaskDockManager.Constants.dockHiddenOffset : 
-                        -currentPhysicalFrame.width + MultitaskDockManager.Constants.dockHiddenOffset
+                    targetX = dockManager.calculateTargetX(isDockHidden: true, isOnRightSide: isOnRightSide, dockWidth: currentPhysicalFrame.width, screenWidth: screenBounds.width)
                 } else {
-                    targetX = currentPhysicalFrame.midX < screenBounds.width / 2 ? 0 : screenBounds.width - currentPhysicalFrame.width
+                    targetX = currentPhysicalFrame.midX < screenBounds.width / 2 ? safeAreaInsets.left : screenBounds.width - currentPhysicalFrame.width - safeAreaInsets.right
                 }
                 
                 let finalPhysicalPosition = CGPoint(x: targetX, y: targetY)
