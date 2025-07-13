@@ -35,17 +35,18 @@ void UIKitFixesInit(void) {
 @property(nonatomic) DecoratedFloatingView* rootView;
 @property(nonatomic) AppSceneViewController* appSceneVC;
 @property(nonatomic) ResizeHandleView* resizeHandle;
+@property(nonatomic) NSArray* activatedVerticalConstraints;
 @property(nonatomic) NSString *sceneID;
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) NSString* windowName;
 @property(nonatomic) int pid;
 @property(nonatomic) CGRect originalFrame;
 @property(nonatomic) UIBarButtonItem *maximizeButton;
-
+@property(nonatomic) bool isAppTerminationRequested;
 @end
 
 @implementation DecoratedAppSceneViewController
-- (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID {
+- (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID error:(NSError**)error {
     self = [super initWithNibName:nil bundle:nil];
     
     if(UIInterfaceOrientationIsLandscape(UIApplication.sharedApplication.statusBarOrientation)) {
@@ -60,24 +61,15 @@ void UIKitFixesInit(void) {
     _rootView.layer.masksToBounds = YES;
     
     
-    NSError* error = NULL;
-    _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self error:&error];
+    _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self error:error];
     
-    if(error) {
-        return self;
+    if(*error) {
+        return nil;
     }
+    MultitaskDockManager *dock = [MultitaskDockManager shared];
+    [dock addRunningApp:windowName appUUID:dataUUID view:_rootView];
     
-//    appSceneView.view.layer.anchorPoint = CGPointMake(0, 0);
-//    appSceneView.view.layer.position = CGPointMake(0, 0);
-//
-//    
-//    self.appSceneView = appSceneView;
-//    int pid = appSceneView.pid;
-//    self.dataUUID = dataUUID;
-//    self.pid = pid;
-//
-//    NSLog(@"Presenting app scene from PID %d", pid);
-//    
+    self.dataUUID = dataUUID;
     self.scaleRatio = 1.0;
     self.isMaximized = NO;
     self.originalFrame = CGRectZero;
@@ -141,37 +133,42 @@ void UIKitFixesInit(void) {
     
     self.windowName = windowName;
     _rootView.navigationItem.title = windowName;
-//    self.view.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    
-//    UIView* contentView = [(DecoratedFloatingView*)self.view contentView];
-//    [self addChildViewController:appSceneView];
-//    [appSceneView.view setTranslatesAutoresizingMaskIntoConstraints:NO];
-//    [self.view insertSubview:appSceneView.view atIndex:0];
-//    [NSLayoutConstraint activateConstraints:@[
-//        [appSceneView.view.topAnchor constraintEqualToAnchor:self.view.topAnchor],
-//        [appSceneView.view.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-//        [appSceneView.view.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-//        [appSceneView.view.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor]
-//    ]];
-//    
+
     return self;
 }
 
 - (void) loadView {
     self.view = _rootView;
 
-    
     [self addChildViewController:_appSceneVC];
 
     [self.view insertSubview:_appSceneVC.view atIndex:0];
     _appSceneVC.view.translatesAutoresizingMaskIntoConstraints = NO;
+    
+    
+    
+    if([NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"]) {
+        _activatedVerticalConstraints = @[
+            [_appSceneVC.view.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+            [_appSceneVC.view.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-44],
+        ];
+    } else {
+        _activatedVerticalConstraints = @[
+            [_appSceneVC.view.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:44],
+            [_appSceneVC.view.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        ];
+    }
+    [NSLayoutConstraint activateConstraints:_activatedVerticalConstraints];
     [NSLayoutConstraint activateConstraints:@[
-        [_appSceneVC.view.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:44],
-        [_appSceneVC.view.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
         [_appSceneVC.view.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [_appSceneVC.view.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor]
     ]];
+    
+    
+    NSUserDefaults *defaults = NSUserDefaults.lcSharedDefaults;
 
+    [defaults addObserver:self forKeyPath:@"LCMultitaskBottomWindowBar" options:NSKeyValueObservingOptionNew context:NULL];
+    
 }
 
 
@@ -180,7 +177,7 @@ void UIKitFixesInit(void) {
     UIView *containerView = [[UIView alloc] init];
     containerView.translatesAutoresizingMaskIntoConstraints = NO;
     containerView.exclusiveTouch = YES;
-    [[(DecoratedFloatingView*)self.view navigationBar] setItems:@[self.navigationItem]];
+
     UIStackView *stackView = [[UIStackView alloc] init];
     stackView.axis = UILayoutConstraintAxisVertical;
     stackView.spacing = 0.0;
@@ -218,93 +215,86 @@ void UIKitFixesInit(void) {
 
 - (void)scaleSliderChanged:(_UIPrototypingMenuSlider *)slider {
     self.scaleRatio = slider.value;
-//    CGSize size = self.contentView.bounds.size;
-//    self.contentView.layer.sublayerTransform = CATransform3DMakeScale(_scaleRatio, _scaleRatio, 1.0);
-//    [self.appSceneView resizeWindowWithFrame:CGRectMake(0, 0, size.width / _scaleRatio, size.height / _scaleRatio)];
+    [_appSceneVC setScale:slider.value];
 }
 
 - (void)closeWindow {
-//    [self.appSceneView closeWindow];
+    _isAppTerminationRequested = true;
+    if([_appSceneVC isAppRunning]) {
+        [_appSceneVC terminate];
+    } else {
+        [self appDidExit];
+    }
 }
 
 - (void)minimizeWindow {
-//    [UIView animateWithDuration:0.3 
-//                          delay:0 
-//                        options:UIViewAnimationOptionCurveEaseInOut 
-//                     animations:^{
-//                         self.alpha = 0;
-//                         self.transform = CGAffineTransformMakeScale(0.1, 0.1);
-//                     } 
-//                     completion:^(BOOL finished) {
-//                         self.hidden = YES;
-//                         self.transform = CGAffineTransformIdentity;
-//                     }];
+    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+        self.view.alpha = 0;
+        self.view.transform = CGAffineTransformMakeScale(0.1, 0.1);
+    } completion:^(BOOL finished) {
+        self.view.hidden = YES;
+        self.view.transform = CGAffineTransformIdentity;
+    }];
 }
 
 - (void)maximizeWindow {
-//    if (self.isMaximized) {
-//        [UIView animateWithDuration:0.3 
-//                              delay:0 
-//                            options:UIViewAnimationOptionCurveEaseInOut 
-//                         animations:^{
-//                             CGSize windowSize = self.window.frame.size;
-//                             self.frame = CGRectMake(windowSize.width * self.originalFrame.origin.x, windowSize.height * self.originalFrame.origin.y, self.originalFrame.size.width, self.originalFrame.size.height);
-//                         }
-//                         completion:^(BOOL finished) {
-//                             self.isMaximized = NO;
-//                             UIImage *maximizeImage = [UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right.circle"];
-//                             UIImageConfiguration *maximizeConfig = [UIImageSymbolConfiguration configurationWithPointSize:16.0 weight:UIImageSymbolWeightMedium];
-//                             self.maximizeButton.image = [maximizeImage imageWithConfiguration:maximizeConfig];
-//                             CGSize size = self.contentView.bounds.size;
-//                             [self.appSceneView resizeWindowWithFrame:CGRectMake(0, 0, size.width / self.scaleRatio, size.height / self.scaleRatio)];
-//                         }];
-//    } else {
-//        // save origin as normalized coordinates
-//        CGSize windowSize = self.window.frame.size;
-//        self.originalFrame = CGRectMake(self.frame.origin.x/windowSize.width, self.frame.origin.y/windowSize.height, self.frame.size.width, self.frame.size.height);
-//        
-//        UIEdgeInsets safeAreaInsets = self.window.safeAreaInsets;
-//        CGRect maxFrame = UIEdgeInsetsInsetRect(self.window.frame, safeAreaInsets);
-//        
-//        [UIView animateWithDuration:0.3 
-//                              delay:0 
-//                            options:UIViewAnimationOptionCurveEaseInOut 
-//                         animations:^{
-//                             self.frame = maxFrame;
-//                         } 
-//                         completion:^(BOOL finished) {
-//                             self.isMaximized = YES;
-//                             UIImage *restoreImage = [UIImage systemImageNamed:@"arrow.down.right.and.arrow.up.left.circle"];
-//                             UIImageConfiguration *restoreConfig = [UIImageSymbolConfiguration configurationWithPointSize:16.0 weight:UIImageSymbolWeightMedium];
-//                             self.maximizeButton.image = [restoreImage imageWithConfiguration:restoreConfig];
-//                             CGSize size = self.contentView.bounds.size;
-//                             [self.appSceneView resizeWindowWithFrame:CGRectMake(0, 0, size.width / self.scaleRatio, size.height / self.scaleRatio)];
-//                         }];
-//    }
+    UIEdgeInsets safeAreaInsets = self.view.window.safeAreaInsets;
+    CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, safeAreaInsets);
+    
+    if (self.isMaximized) {
+        CGRect newFrame = CGRectMake(self.originalFrame.origin.x * maxFrame.size.width, self.originalFrame.origin.y * maxFrame.size.height, self.originalFrame.size.width, self.originalFrame.size.height);
+        [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            self.view.frame = newFrame;
+        } completion:^(BOOL finished) {
+            self.isMaximized = NO;
+            UIImage *maximizeImage = [UIImage systemImageNamed:@"arrow.up.left.and.arrow.down.right.circle"];
+            UIImageConfiguration *maximizeConfig = [UIImageSymbolConfiguration configurationWithPointSize:16.0 weight:UIImageSymbolWeightMedium];
+            self.maximizeButton.image = [maximizeImage imageWithConfiguration:maximizeConfig];
+            self.view.frame = newFrame;
+        }];
+    } else {
+        // save origin as normalized coordinates
+        self.originalFrame = CGRectMake(self.view.frame.origin.x / maxFrame.size.width, self.view.frame.origin.y / maxFrame.size.height, self.view.frame.size.width, self.view.frame.size.height);
+        [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            self.view.frame = maxFrame;
+        } completion:^(BOOL finished) {
+            self.isMaximized = YES;
+            UIImage *restoreImage = [UIImage systemImageNamed:@"arrow.down.right.and.arrow.up.left.circle"];
+            UIImageConfiguration *restoreConfig = [UIImageSymbolConfiguration configurationWithPointSize:16.0 weight:UIImageSymbolWeightMedium];
+            self.maximizeButton.image = [restoreImage imageWithConfiguration:restoreConfig];
+            //                             [self.appSceneView resizeWindowWithFrame:CGRectMake(0, 0, size.width / self.scaleRatio, size.height / self.scaleRatio)];
+            self.view.frame = maxFrame;
+        }];
+    }
 }
 
-//- (void)resizeWindow:(UIPanGestureRecognizer*)sender {
-//    [super resizeWindow:sender];
-//    CGSize size = self.contentView.bounds.size;
-//    [self.appSceneView resizeWindowWithFrame:CGRectMake(0, 0, size.width / _scaleRatio, size.height / _scaleRatio)];
-//}
-
 - (void)appDidExit {
-//    MultitaskDockManager *dock = [MultitaskDockManager shared];
-//    [dock removeRunningApp:self.dataUUID];
-//    
-//    self.layer.masksToBounds = NO;
-//    [UIView transitionWithView:self duration:0.4 options:UIViewAnimationOptionTransitionCurlUp animations:^{
-//        self.hidden = YES;
-//    } completion:^(BOOL b){
-//        [self removeFromSuperview];
-//    }];
+    if(_isAppTerminationRequested) {
+        
+        MultitaskDockManager *dock = [MultitaskDockManager shared];
+        [dock removeRunningApp:self.dataUUID];
+        
+        self.view.layer.masksToBounds = NO;
+        [UIView transitionWithView:self.view duration:0.4 options:UIViewAnimationOptionTransitionCurlUp animations:^{
+            self.view.hidden = YES;
+        } completion:^(BOOL b){
+            [self.view removeFromSuperview];
+        }];
+    } else {
+        UILabel *label = [[UILabel alloc] initWithFrame:self.view.bounds];
+        label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        label.lineBreakMode = NSLineBreakByWordWrapping;
+        label.numberOfLines = 0;
+        label.text = NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", @"");
+        label.textAlignment = NSTextAlignmentCenter;
+        [self.appSceneVC.view addSubview:label];
+    }
 }
 
 - (void)adjustNavigationBarButtonSpacingWithNegativeSpacing:(CGFloat)spacing rightMargin:(CGFloat)margin {
-//    if (!self.navigationBar) return;
-//    
-//    [self findAndAdjustButtonBarStackView:self.navigationBar withSpacing:spacing rightMargin:margin];
+    if (![(DecoratedFloatingView*)self.view navigationBar]) return;
+    
+    [self findAndAdjustButtonBarStackView:[(DecoratedFloatingView*)self.view navigationBar] withSpacing:spacing rightMargin:margin];
 }
 
 - (void)findAndAdjustButtonBarStackView:(UIView *)view withSpacing:(CGFloat)spacing rightMargin:(CGFloat)margin {
@@ -334,54 +324,38 @@ void UIKitFixesInit(void) {
     }
 }
 
-- (void)willMoveToSuperview:(UIView *)newSuperview {
-//    [super willMoveToSuperview:newSuperview];
-//    NSUserDefaults *defaults = NSUserDefaults.lcSharedDefaults;
-//    if(newSuperview) {
-//        [defaults addObserver:self forKeyPath:@"LCMultitaskBottomWindowBar" options:NSKeyValueObservingOptionNew context:NULL];
-//    } else {
-//        [defaults removeObserver:self forKeyPath:@"LCMultitaskBottomWindowBar"];
-//    }
-}
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
-//    BOOL bottomWindowBar = [change[NSKeyValueChangeNewKey] boolValue];
-//    [UIView animateWithDuration:0.3 animations:^{
-//        if(bottomWindowBar) {
-//            self.navigationItem.leftBarButtonItems = self.navigationItem.rightBarButtonItems;
-//            self.navigationItem.rightBarButtonItems = nil;
-//            [self addArrangedSubview:self.navigationBar];
-//        } else {
-//            self.navigationItem.rightBarButtonItems = self.navigationItem.leftBarButtonItems;
-//            self.navigationItem.leftBarButtonItems = nil;
-//            [self insertArrangedSubview:self.navigationBar atIndex:0];
-//        }
-//        [self adjustNavigationBarButtonSpacingWithNegativeSpacing:-8.0 rightMargin:-4.0];
-//    }];
+    BOOL bottomWindowBar = [change[NSKeyValueChangeNewKey] boolValue];
+    [UIView animateWithDuration:0.3 animations:^{
+        DecoratedFloatingView* rootView = (DecoratedFloatingView*)self.view;
+        if(bottomWindowBar) {
+            self.navigationItem.leftBarButtonItems = self.navigationItem.rightBarButtonItems;
+            self.navigationItem.rightBarButtonItems = nil;
+            [rootView addArrangedSubview:rootView.navigationBar];
+        } else {
+            self.navigationItem.rightBarButtonItems = rootView.navigationItem.leftBarButtonItems;
+            self.navigationItem.leftBarButtonItems = nil;
+            [rootView insertArrangedSubview:rootView.navigationBar atIndex:0];
+        }
+        
+        [NSLayoutConstraint deactivateConstraints:self.activatedVerticalConstraints];
+        if(bottomWindowBar) {
+            self.activatedVerticalConstraints = @[
+                [self.appSceneVC.view.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+                [self.appSceneVC.view.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor constant:-44],
+            ];
+        } else {
+            self.activatedVerticalConstraints = @[
+                [self.appSceneVC.view.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:44],
+                [self.appSceneVC.view.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+            ];
+        }
+        [NSLayoutConstraint activateConstraints:self.activatedVerticalConstraints];
+        
+        [self adjustNavigationBarButtonSpacingWithNegativeSpacing:-8.0 rightMargin:-4.0];
+    }];
 }
-
-//- (void) viewDidLoad {
-//    [super viewDidLoad];
-//    if(UIInterfaceOrientationIsLandscape(UIApplication.sharedApplication.statusBarOrientation)) {
-//        _floatingView = [[DecoratedFloatingView alloc] initWithFrame:self.view.bounds];
-//    } else {
-//        _floatingView = [[DecoratedFloatingView alloc] initWithFrame:self.view.bounds];
-//    }
-//    
-//    _floatingView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-//    [self.view addSubview:_floatingView];
-//    
-//    [self addChildViewController:_appSceneView];
-//    // Add its view to the contentView of the floating view
-//    UIView *contentView = _floatingView.contentView;
-//    _appSceneView.view.frame = contentView.bounds;
-//    _appSceneView.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-//    [contentView addSubview:_appSceneView.view];
-//
-//    // Notify the child view controller that it was moved to a parent
-//    [_appSceneView didMoveToParentViewController:self];
-//}
-
 
 - (void)moveWindow:(UIPanGestureRecognizer*)sender {
     CGPoint point = [sender translationInView:self.view];

@@ -77,40 +77,40 @@ Class LCSharedUtilsClass = nil;
         return;
     }
     
-//    NSError *error;
-//    NSExtension *extension = [NSExtension extensionWithIdentifier:liveProcessBundle.bundleIdentifier error:&error];
-//    if(error) {
-//        completionHandler(error);
-//        return;
-//    }
-    
     NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
-//    NSExtensionItem *item = [NSExtensionItem new];
-//    NSString* selectedContainer = [lcUserDefaults stringForKey:@"selectedContainer"];
-//    item.userInfo = @{
-//        @"selected": [lcUserDefaults stringForKey:@"selected"],
-//        @"selectedContainer": [lcUserDefaults stringForKey:@"selectedContainer"]
-//    };
-
+    NSString* bundleId = [lcUserDefaults stringForKey:@"selected"];
+    NSString* dataUUID = [lcUserDefaults stringForKey:@"selectedContainer"];
+    
+    [lcUserDefaults removeObjectForKey:@"selected"];
+    [lcUserDefaults removeObjectForKey:@"selectedContainer"];
     
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (@available(iOS 16.1, *)) {
+            if(UIApplication.sharedApplication.supportsMultipleScenes && [[[NSUserDefaults alloc] initWithSuiteName:[LCUtils appGroupID]] integerForKey:@"LCMultitaskMode" ] == 1) {
+                [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId];
+                MultitaskDockManager *dock = [MultitaskDockManager shared];
+                [dock addRunningApp:displayName appUUID:dataUUID view:nil];
+                
+                completionHandler(nil);
+                return;
+            }
+        }
+        
         UIViewController *rootVC = ((UIWindowScene *)UIApplication.sharedApplication.connectedScenes.anyObject).keyWindow.rootViewController;
         
-        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:[lcUserDefaults stringForKey:@"selected"] dataUUID:[lcUserDefaults stringForKey:@"selectedContainer"]];
+        NSError* error = 0;
+        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID error:&error];
+        if(error) {
+            completionHandler(error);
+            return;
+        }
         
-        [lcUserDefaults removeObjectForKey:@"selected"];
-        [lcUserDefaults removeObjectForKey:@"selectedContainer"];
-        
-//        launcherView.center = view.center;
+        launcherView.view.center = rootVC.view.center;
         [rootVC addChildViewController:launcherView];
         [rootVC.view addSubview:launcherView.view];
-        
+        completionHandler(nil);
         
     });
-
-    
-//    MultitaskDockManager *dock = [MultitaskDockManager shared];
-//    [dock addRunningApp:displayName appUUID:selectedContainer];
     
 }
 

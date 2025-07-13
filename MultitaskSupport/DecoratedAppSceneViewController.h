@@ -6,6 +6,6 @@ API_AVAILABLE(ios(16.0))
 @interface DecoratedAppSceneViewController : UIViewController<AppSceneViewDelegate>
 @property(nonatomic) BOOL isMaximized;
 @property(nonatomic) CGFloat scaleRatio;
-- (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID;
+- (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID error:(NSError**)error;
 @end
 

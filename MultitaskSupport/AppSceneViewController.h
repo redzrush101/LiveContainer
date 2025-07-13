@@ -11,24 +11,20 @@
 
 @protocol AppSceneViewDelegate <NSObject>
 - (void)appDidExit;
-- (void)appClosedWithError:(NSError*)error;
 @end
 
 API_AVAILABLE(ios(16.0))
 @interface AppSceneViewController : UIViewController<_UISceneSettingsDiffAction>
-@property(nonatomic) UIWindowScene *hostScene;
-@property(nonatomic) _UIScenePresenter *presenter;
-@property(nonatomic) UIMutableApplicationSceneSettings *settings;
-@property(nonatomic) NSString *sceneID;
-@property(nonatomic) NSExtension* extension;
+
 @property(nonatomic) NSString* bundleId;
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) int pid;
 @property(nonatomic) id<AppSceneViewDelegate> delegate;
 @property(nonatomic) BOOL isAppRunning;
+@property(nonatomic) CGFloat scaleRatio;
 
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewDelegate>)delegate error:(NSError**)error;
-- (void)resizeWindowWithFrame:(CGRect)frame;
-- (void)closeWindow;
+- (void)setScale:(float)scale;
+- (void)terminate;
 @end
 
