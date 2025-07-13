@@ -11,6 +11,7 @@
 
 @protocol AppSceneViewDelegate <NSObject>
 - (void)appDidExit;
+- (void)appClosedWithError:(NSError*)error;
 @end
 
 API_AVAILABLE(ios(16.0))
@@ -20,13 +21,13 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) UIMutableApplicationSceneSettings *settings;
 @property(nonatomic) NSString *sceneID;
 @property(nonatomic) NSExtension* extension;
+@property(nonatomic) NSString* bundleId;
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) int pid;
 @property(nonatomic) id<AppSceneViewDelegate> delegate;
 @property(nonatomic) BOOL isAppRunning;
 
-- (instancetype)initWithExtension:(NSExtension *)extension  frame:(CGRect)frame identifier:(NSUUID *)identifier dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewDelegate>)delegate;
-
+- (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewDelegate>)delegate error:(NSError**)error;
 - (void)resizeWindowWithFrame:(CGRect)frame;
 - (void)closeWindow;
 @end

@@ -183,8 +183,8 @@
 			membershipExceptions = (
 				AppSceneViewController.h,
 				AppSceneViewController.m,
-				DecoratedAppSceneView.h,
-				DecoratedAppSceneView.m,
+				DecoratedAppSceneViewController.h,
+				DecoratedAppSceneViewController.m,
 				DecoratedFloatingView.h,
 				DecoratedFloatingView.m,
 				PiPManager.h,

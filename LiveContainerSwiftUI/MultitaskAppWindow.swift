@@ -64,6 +64,10 @@ struct AppSceneViewSwiftUI : UIViewControllerRepresentable {
     var dataUUID: String
     
     class Coordinator: NSObject, AppSceneViewDelegate {
+        func appClosedWithError(_ error: (any Error)!) {
+            
+        }
+        
         let onExit : () -> Void
         init(onExit: @escaping () -> Void) {
             self.onExit = onExit
@@ -81,11 +85,15 @@ struct AppSceneViewSwiftUI : UIViewControllerRepresentable {
         }
     }
 
-    func makeUIViewController(context: Context) -> AppSceneViewController {
-        return AppSceneViewController(with: ext, frame: CGRect(x: 0,y: 0,width: initSize.width,height: initSize.height), identifier: identifier, dataUUID: dataUUID, delegate: context.coordinator)
+    func makeUIViewController(context: Context) -> UIViewController {
+        do {
+            return try AppSceneViewController(bundleId: "aaa", dataUUID: dataUUID, delegate: context.coordinator)
+        } catch {
+            return UIViewController()
+        }
     }
     
-    func updateUIViewController(_ vc: AppSceneViewController, context: Context) {
+    func updateUIViewController(_ vc: UIViewController, context: Context) {
 
     }
 }
