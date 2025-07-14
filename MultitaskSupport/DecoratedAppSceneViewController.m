@@ -32,7 +32,6 @@ void UIKitFixesInit(void) {
 }
 
 @interface DecoratedAppSceneViewController()
-@property(nonatomic) AppSceneViewController* appSceneVC;
 @property(nonatomic) NSArray* activatedVerticalConstraints;
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) NSString* windowName;
@@ -269,6 +268,21 @@ void UIKitFixesInit(void) {
     }];
 }
 
+- (void)minimizeWindowPiP {
+    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+        self.view.alpha = 0;
+    } completion:^(BOOL finished) {
+        self.view.hidden = YES;
+    }];
+}
+
+- (void)unminimizeWindowPiP {
+    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+        self.view.hidden = NO;
+        self.view.alpha = 1;
+    } completion:nil];
+}
+
 - (void)maximizeWindow {
     CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, self.view.window.safeAreaInsets);
     
@@ -354,7 +368,7 @@ void UIKitFixesInit(void) {
         CGPoint center = self.view.center;
         CGRect frame = CGRectZero;
         frame.size.width = MIN(newFrame.size.width*self.scaleRatio, maxFrame.size.width);
-        frame.size.height = MIN(newFrame.size.height*self.scaleRatio + self.navigationBar.frame.size.height, maxFrame.size.height);
+        frame.size.height = MIN(newFrame.size.height*self.scaleRatio, maxFrame.size.height);
         CGFloat oobOffset = MAX(30, frame.size.width - 30);
         frame.origin.x = MAX(maxFrame.origin.x - oobOffset, MIN(CGRectGetMaxX(maxFrame) - frame.size.width + oobOffset, center.x - frame.size.width / 2));
         frame.origin.y = MAX(maxFrame.origin.y, MIN(center.y - frame.size.height / 2, CGRectGetMaxY(maxFrame) - frame.size.height));

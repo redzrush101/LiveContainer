@@ -11,6 +11,7 @@
 #include "unarchive.h"
 #include "../MultitaskSupport/AppSceneViewController.h"
 #include "../MultitaskSupport/DecoratedAppSceneViewController.h"
+#include "../MultitaskSupport/PiPManager.h"
 #include "../LiveContainer/FoundationPrivate.h"
 
 #endif /* LiveContainerSwiftUI_Bridging_Header_h_h */

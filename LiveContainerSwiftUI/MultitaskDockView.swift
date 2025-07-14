@@ -126,6 +126,7 @@ class AppInfoProvider {
 }
 
 // MARK: - MultitaskDockView Manager
+@available(iOS 16.0, *)
 @objc public class MultitaskDockManager: NSObject, ObservableObject {
     @objc public static let shared = MultitaskDockManager()
     
@@ -535,6 +536,11 @@ class AppInfoProvider {
         let isHidden = view.isHidden || view.alpha < 0.1
         
         if isHidden {
+            let pipManager = PiPManager.shared!
+            if let decoratedVC = view._viewControllerForAncestor(), pipManager.isPiP(withDecoratedVC: decoratedVC) {
+                pipManager.stopPiP()
+            }
+            
             view.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
             view.isHidden = false
             UIView.animate(
@@ -699,6 +705,7 @@ class AppInfoProvider {
 }
 
 // MARK: - SwiftUI Dock View
+@available(iOS 16.0, *)
 public struct MultitaskDockSwiftView: View {
     @EnvironmentObject var dockManager: MultitaskDockManager
     @State private var dragOffset = CGSize.zero
@@ -861,6 +868,7 @@ public struct MultitaskDockSwiftView: View {
 }
 
 // MARK: - Collapsed Dock View
+@available(iOS 16.0, *)
 struct CollapsedDockView: View {
     let isHidden: Bool
     @EnvironmentObject var dockManager: MultitaskDockManager
@@ -905,6 +913,7 @@ struct CollapsedDockView: View {
 }
 
 // MARK: - Collapse Button View
+@available(iOS 16.0, *)
 struct CollapseButtonView: View {
     @EnvironmentObject var dockManager: MultitaskDockManager
     
@@ -953,6 +962,7 @@ class IconCacheManager {
     }
 }
 // MARK: - App Icon View
+@available(iOS 16.0, *)
 struct AppIconView: View {
     let app: DockAppModel
     @Binding var showTooltip: Bool

@@ -195,7 +195,7 @@
         baseSettings.peripheryInsets = self.view.window.safeAreaInsets;
         [self.presenter.scene updateSettings:baseSettings withTransitionContext:newContext completion:nil];
     } else {
-        [self.delegate appSceneVC:self didUpdateFromSettings:baseSettings transitionContext:context];
+        [self.delegate appSceneVC:self didUpdateFromSettings:baseSettings transitionContext:newContext];
     }
 }
 
