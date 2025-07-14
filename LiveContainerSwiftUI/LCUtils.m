@@ -98,12 +98,8 @@ Class LCSharedUtilsClass = nil;
         
         UIViewController *rootVC = ((UIWindowScene *)UIApplication.sharedApplication.connectedScenes.anyObject).keyWindow.rootViewController;
         
-        NSError* error = 0;
-        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID error:&error];
-        if(error) {
-            completionHandler(error);
-            return;
-        }
+
+        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID];
         
         launcherView.view.center = rootVC.view.center;
         [rootVC addChildViewController:launcherView];

@@ -45,7 +45,7 @@ void UIKitFixesInit(void) {
 @end
 
 @implementation DecoratedAppSceneViewController
-- (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID error:(NSError**)error {
+- (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID {
     self = [super initWithNibName:nil bundle:nil];
     
     if(UIInterfaceOrientationIsLandscape(UIApplication.sharedApplication.statusBarOrientation)) {
@@ -60,11 +60,8 @@ void UIKitFixesInit(void) {
     _rootView.layer.masksToBounds = YES;
     
     
-    _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self error:error];
+    _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self];
     
-    if(*error) {
-        return nil;
-    }
     MultitaskDockManager *dock = [MultitaskDockManager shared];
     [dock addRunningApp:windowName appUUID:dataUUID view:_rootView];
     
@@ -72,7 +69,6 @@ void UIKitFixesInit(void) {
     self.scaleRatio = 1.0;
     self.isMaximized = NO;
     self.originalFrame = CGRectZero;
-    self.pid = _appSceneVC.pid;
     
     NSArray *menuItems = @[
         [UIAction actionWithTitle:@"lc.multitask.copyPid".loc image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(UIAction * _Nonnull action) {
@@ -90,12 +86,13 @@ void UIKitFixesInit(void) {
         }]
     ];
     
-    NSString *pidText = [NSString stringWithFormat:@"PID: %d", _pid];
+
     __weak typeof(self) weakSelf = self;
     [_rootView.navigationItem setTitleMenuProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions){
         if(!weakSelf.appSceneVC.isAppRunning) {
             return [UIMenu menuWithTitle:NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", nil) children:@[]];
         } else {
+            NSString *pidText = [NSString stringWithFormat:@"PID: %d", weakSelf.pid];
             return [UIMenu menuWithTitle:pidText children:menuItems];
         }
     }];
@@ -222,7 +219,7 @@ void UIKitFixesInit(void) {
     if([_appSceneVC isAppRunning]) {
         [_appSceneVC terminate];
     } else {
-        [self appDidExit];
+        [self appSceneVCAppDidExit:self.appSceneVC];
     }
 }
 
@@ -267,7 +264,7 @@ void UIKitFixesInit(void) {
     }
 }
 
-- (void)appDidExit {
+- (void)appSceneVCAppDidExit:(AppSceneViewController*)vc {
     if(_isAppTerminationRequested) {
         
         MultitaskDockManager *dock = [MultitaskDockManager shared];
@@ -287,6 +284,14 @@ void UIKitFixesInit(void) {
         label.text = NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", @"");
         label.textAlignment = NSTextAlignmentCenter;
         [self.appSceneVC.view addSubview:label];
+    }
+}
+
+- (void)appSceneVC:(AppSceneViewController*)vc didInitializeWithError:(NSError *)error {
+    if(error) {
+        
+    } else {
+        self.pid = vc.pid;
     }
 }
 

@@ -11,29 +11,11 @@ struct MultitaskAppInfo {
     var displayName: String
     var dataUUID: String
     var bundleId: String
-    var vc: AppSceneViewController? = nil
     
     init(displayName: String, dataUUID: String, bundleId: String) {
         self.displayName = displayName
         self.dataUUID = dataUUID
         self.bundleId = bundleId
-        do {
-            self.vc = try AppSceneViewController(bundleId: bundleId, dataUUID: dataUUID, delegate: nil)
-        } catch {
-            self.vc = nil
-        }
-    }
-    
-    func getWindowTitle() -> String {
-        return "\(displayName) - \(vc?.pid ?? 0)"
-    }
-    
-    func getPid() -> Int {
-        return Int(vc?.pid ?? 0)
-    }
-    
-    func closeApp() {
-        vc?.terminate()
     }
 }
 
@@ -63,35 +45,36 @@ struct MultitaskAppInfo {
 struct AppSceneViewSwiftUI : UIViewControllerRepresentable {
     
     @Binding var show : Bool
-    var initSize: CGSize
-
-    var vc: AppSceneViewController?
+    let bundleId: String
+    let dataUUID: String
+    let initSize: CGSize
+    let onAppInitialize : (Int32, Error?) -> Void
     
-    class Coordinator: NSObject, AppSceneViewDelegate {
+    class Coordinator: NSObject, AppSceneViewControllerDelegate {
         let onExit : () -> Void
-        init(onExit: @escaping () -> Void) {
+        let onAppInitialize : (Int32, Error?) -> Void
+        init(onAppInitialize : @escaping (Int32, Error?) -> Void, onExit: @escaping () -> Void) {
+            self.onAppInitialize = onAppInitialize
             self.onExit = onExit
         }
         
-        func appDidExit() {
+        func appSceneVCAppDidExit(_ vc: AppSceneViewController!) {
             onExit()
         }
-        
+
+        func appSceneVC(_ vc: AppSceneViewController!, didInitializeWithError error: (any Error)!) {
+            onAppInitialize(vc.pid, error)
+        }
     }
     
     func makeCoordinator() -> Coordinator {
-        Coordinator {
+        Coordinator(onAppInitialize: onAppInitialize, onExit: {
             show = false
-        }
+        })
     }
 
     func makeUIViewController(context: Context) -> UIViewController {
-        if let vc {
-            vc.delegate = context.coordinator
-            return vc
-        } else {
-            return UIViewController()
-        }
+        return AppSceneViewController(bundleId: bundleId, dataUUID: dataUUID, delegate: context.coordinator)
     }
     
     func updateUIViewController(_ vc: UIViewController, context: Context) {
@@ -106,6 +89,7 @@ struct AppSceneViewSwiftUI : UIViewControllerRepresentable {
 @available(iOS 16.1, *)
 struct MultitaskAppWindow : View {
     @State var show = true
+    @State var pid = 0
     @State var appInfo : MultitaskAppInfo? = nil
     @EnvironmentObject var sceneDelegate: SceneDelegate
     @Environment(\.openWindow) var openWindow
@@ -122,12 +106,19 @@ struct MultitaskAppWindow : View {
     var body: some View {
         if show, let appInfo {
             GeometryReader { geometry in
-                AppSceneViewSwiftUI(show: $show, initSize:geometry.size, vc: appInfo.vc)
+                AppSceneViewSwiftUI(show: $show, bundleId: appInfo.bundleId, dataUUID: appInfo.dataUUID, initSize:geometry.size,
+                                    onAppInitialize: { pid, error in
+                    if(error == nil) {
+                        DispatchQueue.main.async {
+                            self.pid = Int(pid)
+                        }
+                    }
+                })
                     .background(.black)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .ignoresSafeArea(.all, edges: .all)
-            .navigationTitle(appInfo.getWindowTitle())
+            .navigationTitle(Text("\(appInfo.displayName) - \(String(pid))"))
             .onReceive(pub) { out in
                 if let scene1 = sceneDelegate.window?.windowScene, let scene2 = out.object as? UIWindowScene, scene1 == scene2 {
                     show = false

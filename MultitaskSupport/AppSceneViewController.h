@@ -9,8 +9,13 @@
 @import UIKit;
 @import Foundation;
 
-@protocol AppSceneViewDelegate <NSObject>
-- (void)appDidExit;
+
+@class AppSceneViewController;
+
+API_AVAILABLE(ios(16.0))
+@protocol AppSceneViewControllerDelegate <NSObject>
+- (void)appSceneVCAppDidExit:(AppSceneViewController*)vc;
+- (void)appSceneVC:(AppSceneViewController*)vc didInitializeWithError:(NSError*)error;
 @end
 
 API_AVAILABLE(ios(16.0))
@@ -19,12 +24,12 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) NSString* bundleId;
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) int pid;
-@property(nonatomic) id<AppSceneViewDelegate> delegate;
+@property(nonatomic) id<AppSceneViewControllerDelegate> delegate;
 @property(nonatomic) BOOL isAppRunning;
 @property(nonatomic) CGFloat scaleRatio;
 @property(nonatomic) UIView* contentView;
 
-- (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewDelegate>)delegate error:(NSError**)error;
+- (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate;
 - (void)setScale:(float)scale;
 - (void)terminate;
 - (void)setBackgroundNotificationEnabled:(bool)enabled;
