@@ -185,8 +185,6 @@
 				AppSceneViewController.m,
 				DecoratedAppSceneViewController.h,
 				DecoratedAppSceneViewController.m,
-				DecoratedFloatingView.h,
-				DecoratedFloatingView.m,
 				PiPManager.h,
 				PiPManager.m,
 				ResizeHandleView.h,

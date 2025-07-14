@@ -9,6 +9,7 @@
 #import "LiveContainerSwiftUI-Swift.h"
 #import "../LiveContainerSwiftUI/LCUtils.h"
 #import "PiPManager.h"
+#import "Localization.h"
 
 @interface AppSceneViewController()
 @property int resizeDebounceToken;
@@ -20,7 +21,6 @@
 
 @interface AppSceneViewController()
 @property(nonatomic) UIWindowScene *hostScene;
-@property(nonatomic) _UIScenePresenter *presenter;
 @property(nonatomic) UIMutableApplicationSceneSettings *settings;
 @property(nonatomic) NSString *sceneID;
 @property(nonatomic) NSExtension* extension;
@@ -60,20 +60,27 @@
         @"selectedContainer": _dataUUID
     };
     
-
+    __weak typeof(self) weakSelf = self;
+    [_extension setRequestCancellationBlock:^(NSUUID *uuid, NSError *error) {
+        [weakSelf appTerminationCleanUp];
+        [weakSelf.delegate appSceneVC:weakSelf didInitializeWithError:error];
+    }];
+    [_extension setRequestInterruptionBlock:^(NSUUID *uuid) {
+        [weakSelf appTerminationCleanUp];
+    }];
     [_extension beginExtensionRequestWithInputItems:@[item] completion:^(NSUUID *identifier) {
         if(identifier) {
             [MultitaskManager registerMultitaskContainerWithContainer:self.dataUUID];
             self.identifier = identifier;
             self.pid = [self.extension pidForRequestIdentifier:self.identifier];
             [delegate appSceneVC:self didInitializeWithError:nil];
-            [self setUpAppPresenter];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self setUpAppPresenter];
+            });
         } else {
             NSError* error = [NSError errorWithDomain:@"LiveProcess" code:2 userInfo:@{NSLocalizedDescriptionKey: @"Failed to start app. Child process has unexpectedly crashed"}];
             [delegate appSceneVC:self didInitializeWithError:error];
-            return;
         }
-        
     }];
 
     _isNativeWindow = [[[NSUserDefaults alloc] initWithSuiteName:[LCUtils appGroupID]] integerForKey:@"LCMultitaskMode" ] == 1;
@@ -82,81 +89,79 @@
 }
 
 - (void)setUpAppPresenter {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        self.currentFrame = self.view.frame;
-
-        RBSProcessPredicate* predicate = [PrivClass(RBSProcessPredicate) predicateMatchingIdentifier:@(self.pid)];
-        
-        FBProcessManager *manager = [PrivClass(FBProcessManager) sharedInstance];
-        // At this point, the process is spawned and we're ready to create a scene to render in our app
-        RBSProcessHandle* processHandle = [PrivClass(RBSProcessHandle) handleForPredicate:predicate error:nil];
-        [manager registerProcessForAuditToken:processHandle.auditToken];
-        // NSString *identifier = [NSString stringWithFormat:@"sceneID:%@-%@", bundleID, @"default"];
-        self.sceneID = [NSString stringWithFormat:@"sceneID:%@-%@", @"LiveProcess", NSUUID.UUID.UUIDString];
-        
-        FBSMutableSceneDefinition *definition = [PrivClass(FBSMutableSceneDefinition) definition];
-        definition.identity = [PrivClass(FBSSceneIdentity) identityForIdentifier:self.sceneID];
-        definition.clientIdentity = [PrivClass(FBSSceneClientIdentity) identityForProcessIdentity:processHandle.identity];
-        definition.specification = [UIApplicationSceneSpecification specification];
-        FBSMutableSceneParameters *parameters = [PrivClass(FBSMutableSceneParameters) parametersForSpecification:definition.specification];
-        
-        UIMutableApplicationSceneSettings *settings = [UIMutableApplicationSceneSettings new];
-        settings.canShowAlerts = YES;
-        settings.cornerRadiusConfiguration = [[PrivClass(BSCornerRadiusConfiguration) alloc] initWithTopLeft:self.view.layer.cornerRadius bottomLeft:self.view.layer.cornerRadius bottomRight:self.view.layer.cornerRadius topRight:self.view.layer.cornerRadius];
-        settings.displayConfiguration = UIScreen.mainScreen.displayConfiguration;
-        settings.foreground = YES;
-
-        settings.deviceOrientation = UIDevice.currentDevice.orientation;
-        settings.interfaceOrientation = UIApplication.sharedApplication.statusBarOrientation;
-        if(UIInterfaceOrientationIsLandscape(settings.interfaceOrientation)) {
-            settings.frame = CGRectMake(0, 0, self.view.frame.size.height, self.view.frame.size.width);
-        } else {
-            settings.frame = CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height);
-        }
-        //settings.interruptionPolicy = 2; // reconnect
-        settings.level = 1;
-        settings.persistenceIdentifier = NSUUID.UUID.UUIDString;
-        if(self.isNativeWindow) {
-            UIEdgeInsets defaultInsets = UIApplication.sharedApplication.keyWindow.safeAreaInsets;
-            settings.peripheryInsets = defaultInsets;
-            settings.safeAreaInsetsPortrait = defaultInsets;
-        } else {
-            // it seems some apps don't honor these settings so we don't cover the top of the app
-            settings.peripheryInsets = UIEdgeInsetsMake(0, 0, 0, 0);
-            settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(0, 0, 0, 0);
-        }
-
-
-        settings.statusBarDisabled = !self.isNativeWindow;
-        //settings.previewMaximumSize =
-        //settings.deviceOrientationEventsEnabled = YES;
-        self.settings = settings;
-        parameters.settings = settings;
-        
-        UIMutableApplicationSceneClientSettings *clientSettings = [UIMutableApplicationSceneClientSettings new];
-        clientSettings.interfaceOrientation = UIInterfaceOrientationPortrait;
-        clientSettings.statusBarStyle = 0;
-        parameters.clientSettings = clientSettings;
-        
-        FBScene *scene = [[PrivClass(FBSceneManager) sharedInstance] createSceneWithDefinition:definition initialParameters:parameters];
-        
-        self.presenter = [scene.uiPresentationManager createPresenterWithIdentifier:self.sceneID];
-        [self.presenter modifyPresentationContext:^(UIMutableScenePresentationContext *context) {
-            context.appearanceStyle = 2;
-        }];
-        [self.presenter activate];
-        
-        __weak typeof(self) weakSelf = self;
-        [self.extension setRequestInterruptionBlock:^(NSUUID *uuid) {
-            [weakSelf appTerminationCleanUp];
-        }];
-        
-        [self.contentView addSubview:self.presenter.presentationView];
-        self.contentView.layer.anchorPoint = CGPointMake(0, 0);
-        self.contentView.layer.position = CGPointMake(0, 0);
-        
-        [self.view.window.windowScene _registerSettingsDiffActionArray:@[self] forKey:self.sceneID];
-    });
+    //NSAssert(self.view.window, @"AppSceneViewController must be added to a window before setting up the presenter");
+    self.currentFrame = self.view.frame;
+    
+    RBSProcessPredicate* predicate = [PrivClass(RBSProcessPredicate) predicateMatchingIdentifier:@(self.pid)];
+    
+    FBProcessManager *manager = [PrivClass(FBProcessManager) sharedInstance];
+    // At this point, the process is spawned and we're ready to create a scene to render in our app
+    RBSProcessHandle* processHandle = [PrivClass(RBSProcessHandle) handleForPredicate:predicate error:nil];
+    [manager registerProcessForAuditToken:processHandle.auditToken];
+    // NSString *identifier = [NSString stringWithFormat:@"sceneID:%@-%@", bundleID, @"default"];
+    self.sceneID = [NSString stringWithFormat:@"sceneID:%@-%@", @"LiveProcess", NSUUID.UUID.UUIDString];
+    
+    FBSMutableSceneDefinition *definition = [PrivClass(FBSMutableSceneDefinition) definition];
+    definition.identity = [PrivClass(FBSSceneIdentity) identityForIdentifier:self.sceneID];
+    definition.clientIdentity = [PrivClass(FBSSceneClientIdentity) identityForProcessIdentity:processHandle.identity];
+    definition.specification = [UIApplicationSceneSpecification specification];
+    FBSMutableSceneParameters *parameters = [PrivClass(FBSMutableSceneParameters) parametersForSpecification:definition.specification];
+    
+    UIMutableApplicationSceneSettings *settings = [UIMutableApplicationSceneSettings new];
+    settings.canShowAlerts = YES;
+    settings.cornerRadiusConfiguration = [[PrivClass(BSCornerRadiusConfiguration) alloc] initWithTopLeft:self.view.layer.cornerRadius bottomLeft:self.view.layer.cornerRadius bottomRight:self.view.layer.cornerRadius topRight:self.view.layer.cornerRadius];
+    settings.displayConfiguration = UIScreen.mainScreen.displayConfiguration;
+    settings.foreground = YES;
+    
+    settings.deviceOrientation = UIDevice.currentDevice.orientation;
+    settings.interfaceOrientation = UIApplication.sharedApplication.statusBarOrientation;
+    if(UIInterfaceOrientationIsLandscape(settings.interfaceOrientation)) {
+        settings.frame = CGRectMake(0, 0, self.view.frame.size.height, self.view.frame.size.width);
+    } else {
+        settings.frame = CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height);
+    }
+    //settings.interruptionPolicy = 2; // reconnect
+    settings.level = 1;
+    settings.persistenceIdentifier = NSUUID.UUID.UUIDString;
+    if(self.isNativeWindow) {
+        UIEdgeInsets defaultInsets = self.view.window.safeAreaInsets;
+        settings.peripheryInsets = defaultInsets;
+        settings.safeAreaInsetsPortrait = defaultInsets;
+    } else {
+        // it seems some apps don't honor these settings so we don't cover the top of the app
+        settings.peripheryInsets = UIEdgeInsetsMake(0, 0, 0, 0);
+        settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(0, 0, 0, 0);
+    }
+    
+    settings.statusBarDisabled = !self.isNativeWindow;
+    //settings.previewMaximumSize =
+    //settings.deviceOrientationEventsEnabled = YES;
+    self.settings = settings;
+    parameters.settings = settings;
+    
+    UIMutableApplicationSceneClientSettings *clientSettings = [UIMutableApplicationSceneClientSettings new];
+    clientSettings.interfaceOrientation = UIInterfaceOrientationPortrait;
+    clientSettings.statusBarStyle = 0;
+    parameters.clientSettings = clientSettings;
+    
+    FBScene *scene = [[PrivClass(FBSceneManager) sharedInstance] createSceneWithDefinition:definition initialParameters:parameters];
+    
+    self.presenter = [scene.uiPresentationManager createPresenterWithIdentifier:self.sceneID];
+    [self.presenter modifyPresentationContext:^(UIMutableScenePresentationContext *context) {
+        context.appearanceStyle = 2;
+    }];
+    [self.presenter activate];
+    
+    __weak typeof(self) weakSelf = self;
+    [self.extension setRequestInterruptionBlock:^(NSUUID *uuid) {
+        [weakSelf appTerminationCleanUp];
+    }];
+    
+    [self.contentView addSubview:self.presenter.presentationView];
+    self.contentView.layer.anchorPoint = CGPointMake(0, 0);
+    self.contentView.layer.position = CGPointMake(0, 0);
+    
+    [self.view.window.windowScene _registerSettingsDiffActionArray:@[self] forKey:self.sceneID];
 }
 
 - (void)terminate {
@@ -190,38 +195,7 @@
         baseSettings.peripheryInsets = self.view.window.safeAreaInsets;
         [self.presenter.scene updateSettings:baseSettings withTransitionContext:newContext completion:nil];
     } else {
-        UIMutableApplicationSceneSettings *newSettings = [self.presenter.scene.settings mutableCopy];
-        newSettings.userInterfaceStyle = baseSettings.userInterfaceStyle;
-        newSettings.interfaceOrientation = baseSettings.interfaceOrientation;
-        newSettings.deviceOrientation = baseSettings.deviceOrientation;
-        newSettings.foreground = YES;
-        
-//        DecoratedAppSceneView *sceneView = (id)self.delegate;
-//        UIEdgeInsets safeAreaInsets = self.view.window.safeAreaInsets;
-//        CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, safeAreaInsets);
-//        CGRect newFrame = self.currentFrame;
-//        if(sceneView.isMaximized) {
-//            sceneView.frame = maxFrame;
-//        } else {
-//            CGPoint center = sceneView.center;
-//            CGRect frame = CGRectZero;
-//            frame.size.width = MIN(self.currentFrame.size.width*sceneView.scaleRatio, maxFrame.size.width);
-//            frame.size.height = MIN(self.currentFrame.size.height*sceneView.scaleRatio + sceneView.navigationBar.frame.size.height, maxFrame.size.height);
-//            CGFloat oobOffset = MAX(30, frame.size.width - 30);
-//            frame.origin.x = MAX(maxFrame.origin.x - oobOffset, MIN(CGRectGetMaxX(maxFrame) - frame.size.width + oobOffset, center.x - frame.size.width / 2));
-//            frame.origin.y = MAX(maxFrame.origin.y, MIN(center.y - frame.size.height / 2, CGRectGetMaxY(maxFrame) - frame.size.height));
-//            [UIView animateWithDuration:0.3 animations:^{
-//                sceneView.frame = frame;
-//            }];
-//        }
-//        newFrame = CGRectMake(0, 0, sceneView.frame.size.width/sceneView.scaleRatio, (sceneView.frame.size.height - sceneView.navigationBar.frame.size.height)/sceneView.scaleRatio);
-//        
-        if(UIInterfaceOrientationIsLandscape(baseSettings.interfaceOrientation)) {
-            newSettings.frame = CGRectMake(0, 0, self.view.frame.size.height / self.scaleRatio, self.view.frame.size.width / self.scaleRatio);
-        } else {
-            newSettings.frame = CGRectMake(0, 0, self.view.frame.size.width / self.scaleRatio, self.view.frame.size.height / self.scaleRatio);
-        }
-        [self.presenter.scene updateSettings:newSettings withTransitionContext:newContext completion:nil];
+        [self.delegate appSceneVC:self didUpdateFromSettings:baseSettings transitionContext:context];
     }
 }
 
@@ -264,8 +238,10 @@
     }
     _isAppTerminationCleanUpCalled = true;
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self.view.window.windowScene _unregisterSettingsDiffActionArrayForKey:self.sceneID];
-        [[PrivClass(FBSceneManager) sharedInstance] destroyScene:self.sceneID withTransitionContext:nil];
+        if(self.sceneID) {
+            [self.view.window.windowScene _unregisterSettingsDiffActionArrayForKey:self.sceneID];
+            [[PrivClass(FBSceneManager) sharedInstance] destroyScene:self.sceneID withTransitionContext:nil];
+        }
         if(self.presenter){
             [self.presenter deactivate];
             [self.presenter invalidate];

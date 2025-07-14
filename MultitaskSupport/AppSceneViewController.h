@@ -16,6 +16,8 @@ API_AVAILABLE(ios(16.0))
 @protocol AppSceneViewControllerDelegate <NSObject>
 - (void)appSceneVCAppDidExit:(AppSceneViewController*)vc;
 - (void)appSceneVC:(AppSceneViewController*)vc didInitializeWithError:(NSError*)error;
+@optional
+- (void)appSceneVC:(AppSceneViewController*)vc didUpdateFromSettings:(UIMutableApplicationSceneSettings *)settings transitionContext:(id)context;
 @end
 
 API_AVAILABLE(ios(16.0))
@@ -28,10 +30,11 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) BOOL isAppRunning;
 @property(nonatomic) CGFloat scaleRatio;
 @property(nonatomic) UIView* contentView;
-
+@property(nonatomic) _UIScenePresenter *presenter;
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate;
 - (void)setScale:(float)scale;
-- (void)terminate;
 - (void)setBackgroundNotificationEnabled:(bool)enabled;
+- (void)appTerminationCleanUp;
+- (void)terminate;
 @end
 

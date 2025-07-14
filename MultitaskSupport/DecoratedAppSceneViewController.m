@@ -32,9 +32,7 @@ void UIKitFixesInit(void) {
 }
 
 @interface DecoratedAppSceneViewController()
-@property(nonatomic) DecoratedFloatingView* rootView;
 @property(nonatomic) AppSceneViewController* appSceneVC;
-@property(nonatomic) ResizeHandleView* resizeHandle;
 @property(nonatomic) NSArray* activatedVerticalConstraints;
 @property(nonatomic) NSString* dataUUID;
 @property(nonatomic) NSString* windowName;
@@ -47,28 +45,17 @@ void UIKitFixesInit(void) {
 @implementation DecoratedAppSceneViewController
 - (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID {
     self = [super initWithNibName:nil bundle:nil];
-    
-    if(UIInterfaceOrientationIsLandscape(UIApplication.sharedApplication.statusBarOrientation)) {
-        _rootView = [[DecoratedFloatingView alloc] initWithFrame:CGRectMake(50, 150, 480, 320 + 44)];
-    } else {
-        _rootView = [[DecoratedFloatingView alloc] initWithFrame:CGRectMake(50, 150, 320, 480 + 44)];
-    }
-    
-    _rootView.axis = UILayoutConstraintAxisVertical;
-    _rootView.backgroundColor = UIColor.systemBackgroundColor;
-    _rootView.layer.cornerRadius = 10;
-    _rootView.layer.masksToBounds = YES;
-    
-    
     _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self];
+    [self setupDecoratedView];
     
-    MultitaskDockManager *dock = [MultitaskDockManager shared];
-    [dock addRunningApp:windowName appUUID:dataUUID view:_rootView];
+    [MultitaskDockManager.shared addRunningApp:windowName appUUID:dataUUID view:self.view];
     
     self.dataUUID = dataUUID;
     self.scaleRatio = 1.0;
     self.isMaximized = NO;
     self.originalFrame = CGRectZero;
+    self.windowName = windowName;
+    self.navigationItem.title = windowName;
     
     NSArray *menuItems = @[
         [UIAction actionWithTitle:@"lc.multitask.copyPid".loc image:[UIImage systemImageNamed:@"doc.on.doc"] identifier:nil handler:^(UIAction * _Nonnull action) {
@@ -88,7 +75,7 @@ void UIKitFixesInit(void) {
     
 
     __weak typeof(self) weakSelf = self;
-    [_rootView.navigationItem setTitleMenuProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions){
+    [self.navigationItem setTitleMenuProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions){
         if(!weakSelf.appSceneVC.isAppRunning) {
             return [UIMenu menuWithTitle:NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", nil) children:@[]];
         } else {
@@ -118,30 +105,79 @@ void UIKitFixesInit(void) {
     NSArray *barButtonItems = @[closeButton, self.maximizeButton, minimizeButton];
     if([NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"]) {
         // resize handle overlaps the close button, so put the buttons on the left
-        _rootView.navigationItem.leftBarButtonItems = barButtonItems;
+        self.navigationItem.leftBarButtonItems = barButtonItems;
     } else {
-        _rootView.navigationItem.rightBarButtonItems = barButtonItems;
+        self.navigationItem.rightBarButtonItems = barButtonItems;
     }
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self adjustNavigationBarButtonSpacingWithNegativeSpacing:-8.0 rightMargin:-4.0];
     });
-    
-    self.windowName = windowName;
-    _rootView.navigationItem.title = windowName;
 
     return self;
 }
 
-- (void) loadView {
-    self.view = _rootView;
+- (void)setupDecoratedView {
+    self.view = [UIStackView new];
+    if(UIInterfaceOrientationIsLandscape(UIApplication.sharedApplication.statusBarOrientation)) {
+        self.view.frame = CGRectMake(50, 150, 480, 320 + 44);
+    } else {
+        self.view.frame = CGRectMake(50, 150, 320, 480 + 44);
+    }
+    
+    // Navigation bar
+    UINavigationBar *navigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, 44)];
+    navigationBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [[navigationBar.heightAnchor constraintEqualToConstant:44] setActive:true];
+    UINavigationItem *navigationItem = [[UINavigationItem alloc] initWithTitle:@"Unnamed window"];
+    navigationBar.items = @[navigationItem];
+    
+    self.view.axis = UILayoutConstraintAxisVertical;
+    self.view.backgroundColor = UIColor.systemBackgroundColor;
+    self.view.layer.cornerRadius = 10;
+    self.view.layer.masksToBounds = YES;
 
+    self.navigationBar = navigationBar;
+    self.navigationItem = navigationBar.items.firstObject;
+    if (!self.navigationBar.superview) {
+        [self.view addArrangedSubview:self.navigationBar];
+    }
+    
+    CGFloat navBarHeight = self.navigationBar.frame.size.height;
+    CGRect contentFrame = CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height - navBarHeight);
+    UIView *fixedPositionContentView = [[UIView alloc] initWithFrame:contentFrame];
+    self.contentView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    if([NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"]) {
+        [self.view insertArrangedSubview:fixedPositionContentView atIndex:0];
+    } else {
+        [self.view addArrangedSubview:fixedPositionContentView];
+    }
+    [self.view sendSubviewToBack:fixedPositionContentView];
+    
+    self.contentView = [[UIView alloc] initWithFrame:contentFrame];
+    self.contentView.layer.anchorPoint = self.contentView.layer.position = CGPointMake(0, 0);
+    self.contentView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [fixedPositionContentView addSubview:self.contentView];
+    
+    UIPanGestureRecognizer *moveGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(moveWindow:)];
+    moveGesture.minimumNumberOfTouches = 1;
+    moveGesture.maximumNumberOfTouches = 1;
+    [self.navigationBar addGestureRecognizer:moveGesture];
+
+    // Resize handle (idea stolen from Notes debugging window)
+    UIPanGestureRecognizer *resizeGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(resizeWindow:)];
+    resizeGesture.minimumNumberOfTouches = 1;
+    resizeGesture.maximumNumberOfTouches = 1;
+    self.resizeHandle = [[ResizeHandleView alloc] initWithFrame:CGRectMake(self.view.frame.size.width - navBarHeight, self.view.frame.size.height - navBarHeight, navBarHeight, navBarHeight)];
+    [self.resizeHandle addGestureRecognizer:resizeGesture];
+    [self.view addSubview:self.resizeHandle];
+    
+    self.view.layer.borderWidth = 1.0;
+    self.view.layer.borderColor = UIColor.secondarySystemBackgroundColor.CGColor;
+    
     [self addChildViewController:_appSceneVC];
-
     [self.view insertSubview:_appSceneVC.view atIndex:0];
     _appSceneVC.view.translatesAutoresizingMaskIntoConstraints = NO;
-    
-    
     
     if([NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"]) {
         _activatedVerticalConstraints = @[
@@ -164,7 +200,7 @@ void UIKitFixesInit(void) {
     NSUserDefaults *defaults = NSUserDefaults.lcSharedDefaults;
 
     [defaults addObserver:self forKeyPath:@"LCMultitaskBottomWindowBar" options:NSKeyValueObservingOptionNew context:NULL];
-    
+    [self updateOriginalFrame];
 }
 
 
@@ -234,8 +270,7 @@ void UIKitFixesInit(void) {
 }
 
 - (void)maximizeWindow {
-    UIEdgeInsets safeAreaInsets = self.view.window.safeAreaInsets;
-    CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, safeAreaInsets);
+    CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, self.view.window.safeAreaInsets);
     
     if (self.isMaximized) {
         CGRect newFrame = CGRectMake(self.originalFrame.origin.x * maxFrame.size.width, self.originalFrame.origin.y * maxFrame.size.height, self.originalFrame.size.width, self.originalFrame.size.height);
@@ -249,8 +284,7 @@ void UIKitFixesInit(void) {
             self.view.frame = newFrame;
         }];
     } else {
-        // save origin as normalized coordinates
-        self.originalFrame = CGRectMake(self.view.frame.origin.x / maxFrame.size.width, self.view.frame.origin.y / maxFrame.size.height, self.view.frame.size.width, self.view.frame.size.height);
+        [self updateOriginalFrame];
         [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
             self.view.frame = maxFrame;
         } completion:^(BOOL finished) {
@@ -283,22 +317,65 @@ void UIKitFixesInit(void) {
         label.numberOfLines = 0;
         label.text = NSLocalizedString(@"lc.multitaskAppWindow.appTerminated", @"");
         label.textAlignment = NSTextAlignmentCenter;
-        [self.appSceneVC.view addSubview:label];
+        [self.view insertSubview:label atIndex:0];
     }
 }
 
 - (void)appSceneVC:(AppSceneViewController*)vc didInitializeWithError:(NSError *)error {
-    if(error) {
-        
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if(error) {
+            [vc appTerminationCleanUp];
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"lc.common.error".loc message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.ok".loc style:UIAlertActionStyleCancel handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.copy".loc style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+                UIPasteboard.generalPasteboard.string = error.localizedDescription;
+            }]];
+            [self presentViewController:alert animated:YES completion:nil];
+        } else {
+            self.pid = vc.pid;
+            [self updateOriginalFrame];
+        }
+    });
+}
+
+- (void)appSceneVC:(AppSceneViewController*)vc didUpdateFromSettings:(UIMutableApplicationSceneSettings *)baseSettings transitionContext:(id)newContext {
+    UIMutableApplicationSceneSettings *newSettings = [vc.presenter.scene.settings mutableCopy];
+    newSettings.userInterfaceStyle = baseSettings.userInterfaceStyle;
+    newSettings.interfaceOrientation = baseSettings.interfaceOrientation;
+    newSettings.deviceOrientation = baseSettings.deviceOrientation;
+    newSettings.foreground = YES;
+    
+    CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, self.view.window.safeAreaInsets);
+    CGRect newFrame;
+    if(self.isMaximized) {
+        self.view.frame = maxFrame;
     } else {
-        self.pid = vc.pid;
+        newFrame = CGRectMake(self.originalFrame.origin.x * maxFrame.size.width, self.originalFrame.origin.y * maxFrame.size.height, self.originalFrame.size.width, self.originalFrame.size.height);
+        CGPoint center = self.view.center;
+        CGRect frame = CGRectZero;
+        frame.size.width = MIN(newFrame.size.width*self.scaleRatio, maxFrame.size.width);
+        frame.size.height = MIN(newFrame.size.height*self.scaleRatio + self.navigationBar.frame.size.height, maxFrame.size.height);
+        CGFloat oobOffset = MAX(30, frame.size.width - 30);
+        frame.origin.x = MAX(maxFrame.origin.x - oobOffset, MIN(CGRectGetMaxX(maxFrame) - frame.size.width + oobOffset, center.x - frame.size.width / 2));
+        frame.origin.y = MAX(maxFrame.origin.y, MIN(center.y - frame.size.height / 2, CGRectGetMaxY(maxFrame) - frame.size.height));
+        [UIView animateWithDuration:0.3 animations:^{
+            self.view.frame = frame;
+        }];
     }
+    newFrame = CGRectMake(0, 0, self.view.frame.size.width/self.scaleRatio, (self.view.frame.size.height - self.navigationBar.frame.size.height)/self.scaleRatio);
+    
+    if(UIInterfaceOrientationIsLandscape(baseSettings.interfaceOrientation)) {
+        newSettings.frame = CGRectMake(0, 0, newFrame.size.height, newFrame.size.width);
+    } else {
+        newSettings.frame = CGRectMake(0, 0, newFrame.size.width, newFrame.size.height);
+    }
+    
+    [_appSceneVC.presenter.scene updateSettings:newSettings withTransitionContext:newContext completion:nil];
 }
 
 - (void)adjustNavigationBarButtonSpacingWithNegativeSpacing:(CGFloat)spacing rightMargin:(CGFloat)margin {
-    if (![(DecoratedFloatingView*)self.view navigationBar]) return;
-    
-    [self findAndAdjustButtonBarStackView:[(DecoratedFloatingView*)self.view navigationBar] withSpacing:spacing rightMargin:margin];
+    if (!self.navigationBar) return;
+    [self findAndAdjustButtonBarStackView:self.navigationBar withSpacing:spacing rightMargin:margin];
 }
 
 - (void)findAndAdjustButtonBarStackView:(UIView *)view withSpacing:(CGFloat)spacing rightMargin:(CGFloat)margin {
@@ -332,15 +409,14 @@ void UIKitFixesInit(void) {
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
     BOOL bottomWindowBar = [change[NSKeyValueChangeNewKey] boolValue];
     [UIView animateWithDuration:0.3 animations:^{
-        DecoratedFloatingView* rootView = (DecoratedFloatingView*)self.view;
         if(bottomWindowBar) {
-            rootView.navigationItem.leftBarButtonItems = rootView.navigationItem.rightBarButtonItems;
-            rootView.navigationItem.rightBarButtonItems = nil;
-            [rootView addArrangedSubview:rootView.navigationBar];
+            self.navigationItem.leftBarButtonItems = self.navigationItem.rightBarButtonItems;
+            self.navigationItem.rightBarButtonItems = nil;
+            [self.view addArrangedSubview:self.navigationBar];
         } else {
-            rootView.navigationItem.rightBarButtonItems = rootView.navigationItem.leftBarButtonItems;
-            rootView.navigationItem.leftBarButtonItems = nil;
-            [rootView insertArrangedSubview:rootView.navigationBar atIndex:0];
+            self.navigationItem.rightBarButtonItems = self.navigationItem.leftBarButtonItems;
+            self.navigationItem.leftBarButtonItems = nil;
+            [self.view insertArrangedSubview:self.navigationBar atIndex:0];
         }
         
         [NSLayoutConstraint deactivateConstraints:self.activatedVerticalConstraints];
@@ -366,6 +442,7 @@ void UIKitFixesInit(void) {
     [sender setTranslation:CGPointZero inView:self.view];
 
     self.view.center = CGPointMake(self.view.center.x + point.x, self.view.center.y + point.y);
+    [self updateOriginalFrame];
 }
 
 - (void)resizeWindow:(UIPanGestureRecognizer*)sender {
@@ -376,12 +453,19 @@ void UIKitFixesInit(void) {
     frame.size.width = MAX(50, frame.size.width + point.x);
     frame.size.height = MAX(50, frame.size.height + point.y);
     self.view.frame = frame;
+    [self updateOriginalFrame];
 }
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [super touchesBegan:touches withEvent:event];
     // FIXME: how to bring view to front when touching the passthrough view?
     [self.view.superview bringSubviewToFront:self.view];
+}
+
+- (void)updateOriginalFrame {
+    CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, self.view.window.safeAreaInsets);
+    // save origin as normalized coordinates
+    self.originalFrame = CGRectMake(self.view.frame.origin.x / maxFrame.size.width, self.view.frame.origin.y / maxFrame.size.height, self.view.frame.size.width, self.view.frame.size.height);
 }
 
 @end
