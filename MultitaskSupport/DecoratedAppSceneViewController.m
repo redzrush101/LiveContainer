@@ -498,17 +498,25 @@ void UIKitFixesInit(void) {
     
     // scale peripheryInsets to match the scale ratio
     settings.peripheryInsets = UIEdgeInsetsMake(settings.peripheryInsets.top/_scaleRatio, settings.peripheryInsets.left/_scaleRatio, settings.peripheryInsets.bottom/_scaleRatio, settings.peripheryInsets.right/_scaleRatio);
-    
-    switch(UIApplication.sharedApplication.statusBarOrientation) {
-        case UIInterfaceOrientationLandscapeLeft:
-            settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(settings.peripheryInsets.left, settings.peripheryInsets.top, settings.peripheryInsets.right, settings.peripheryInsets.bottom);
-            break;
-        case UIInterfaceOrientationLandscapeRight:
-            settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(settings.peripheryInsets.left, settings.peripheryInsets.bottom, settings.peripheryInsets.right, settings.peripheryInsets.top);
-            break;
-        default:
-            settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(settings.peripheryInsets.top - settings.peripheryInsets.bottom, settings.peripheryInsets.left, settings.peripheryInsets.bottom, settings.peripheryInsets.right);
-            break;
+    if(UIDevice.currentDevice.userInterfaceIdiom != UIUserInterfaceIdiomPad) {
+        UIInterfaceOrientation currentOrientation = UIApplication.sharedApplication.statusBarOrientation;
+        if(UIInterfaceOrientationIsLandscape(currentOrientation)) {
+            safeAreaInsets.top = 0;
+        }
+        switch(currentOrientation) {
+            case UIInterfaceOrientationLandscapeLeft:
+                settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(settings.peripheryInsets.left, 0, settings.peripheryInsets.right, settings.peripheryInsets.bottom);
+                break;
+            case UIInterfaceOrientationLandscapeRight:
+                settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(settings.peripheryInsets.left, settings.peripheryInsets.bottom, settings.peripheryInsets.right, 0);
+                break;
+            default:
+                settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(settings.peripheryInsets.top, settings.peripheryInsets.left, settings.peripheryInsets.bottom, settings.peripheryInsets.right);
+                break;
+        }
+
+    } else {
+        settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(settings.peripheryInsets.top, settings.peripheryInsets.left, settings.peripheryInsets.bottom, settings.peripheryInsets.right);
     }
     
     safeAreaInsets.bottom = 0;

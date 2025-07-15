@@ -181,19 +181,12 @@
     if(self.isNativeWindow) {
         // directly update the settings
         baseSettings.interruptionPolicy = 0;
-        baseSettings.safeAreaInsetsPortrait = self.view.window.safeAreaInsets;
         baseSettings.peripheryInsets = self.view.window.safeAreaInsets;
         [self.presenter.scene updateSettings:baseSettings withTransitionContext:newContext completion:nil];
     } else {
         [self.delegate appSceneVC:self didUpdateFromSettings:baseSettings transitionContext:newContext];
     }
 }
-
-- (void)viewDidAppear:(BOOL)animated {
-    [super viewDidAppear:animated];
-//    [self.view.window.windowScene _registerSettingsDiffActionArray:@[self] forKey:self.sceneID];
-}
-
 
 - (void)viewWillLayoutSubviews {
     [self updateFrameWithSettingsBlock:nil];
