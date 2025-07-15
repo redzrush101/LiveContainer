@@ -161,14 +161,23 @@ class AppInfoProvider {
         static let maxHeightRatioOfAvailableArea: CGFloat = 0.85
         
         // MARK: - Animation & Interaction
-        static let dockHiddenOffset: CGFloat = 25.0
+        static var dockHiddenOffset: CGFloat {
+            get {
+                let ans = LCUtils.appGroupUserDefault.double(forKey: "LCDockWidth")
+                if ans != 0 {
+                    return ans * 2 / 3
+                } else {
+                    return 50
+                }
+            }
+        }
         static var hideGestureThreshold: CGFloat {
             get {
                 let ans = LCUtils.appGroupUserDefault.double(forKey: "LCDockWidth")
                 if ans != 0 {
-                    return ans / 2
+                    return ans / 3
                 } else {
-                    return 40
+                    return 30
                 }
             }
         }
@@ -334,17 +343,30 @@ class AppInfoProvider {
     }
 
     func calculateTargetX(isDockHidden: Bool, isOnRightSide: Bool, dockWidth: CGFloat, screenWidth: CGFloat) -> CGFloat {
-        if isDockHidden {
-            let safeInsets = self.safeAreaInsets
-            var ans : CGFloat
-            if isOnRightSide {
-                return (screenWidth - safeInsets.right) - Constants.dockHiddenOffset
-            } else {
-                return safeInsets.left - dockWidth + Constants.dockHiddenOffset
+
+        let safeInsets = self.safeAreaInsets
+        var ans : CGFloat
+        if isOnRightSide {
+            ans = screenWidth - dockWidth
+            if self.hostingController?.view.window?.windowScene?.interfaceOrientation == UIInterfaceOrientation.landscapeLeft {
+                ans -= safeInsets.right
+            }
+            
+            if isDockHidden {
+                ans += Constants.dockHiddenOffset
             }
         } else {
-            return isOnRightSide ? screenWidth - dockWidth : 0
+            ans = 0
+            if self.hostingController?.view.window?.windowScene?.interfaceOrientation == UIInterfaceOrientation.landscapeRight {
+                ans += safeInsets.left
+            }
+            if isDockHidden {
+                ans -= Constants.dockHiddenOffset
+            }
         }
+        
+        return ans;
+
     }
 
     private func calculateTargetY(for currentFrame: CGRect, dockHeight: CGFloat, screenHeight: CGFloat) -> CGFloat {
@@ -748,40 +770,47 @@ public struct MultitaskDockSwiftView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 8) {
-            if dockManager.isCollapsed {
-                CollapsedDockView(isHidden: dockManager.isDockHidden)
-                    .onTapGesture {
-                        dockManager.toggleDockCollapse()
-                    }
-            } else {
-                VStack(spacing: 8) {
-                    CollapseButtonView()
+        GeometryReader { g in
+            VStack(spacing: 8) {
+                if dockManager.isCollapsed {
+                    CollapsedDockView(isHidden: dockManager.isDockHidden)
                         .onTapGesture {
                             dockManager.toggleDockCollapse()
                         }
-                    
-                    ForEach(dockManager.apps) { app in
-                        AppIconView(app: app, showTooltip: $showTooltip, tooltipApp: $tooltipApp)
+                } else {
+                    VStack(spacing: 8) {
+                        CollapseButtonView()
+                            .onTapGesture {
+                                dockManager.toggleDockCollapse()
+                            }
+                        
+                        ForEach(dockManager.apps) { app in
+                            AppIconView(app: app, showTooltip: $showTooltip, tooltipApp: $tooltipApp)
 
+                        }
                     }
                 }
             }
+            .padding(.vertical, 15)
+            .padding(.horizontal, dynamicPadding)
+            .frame(width: dockManager.dockWidth)
+            .background(
+                RoundedRectangle(cornerRadius: 15)
+                    .fill(Color.black.opacity(dockManager.isDockHidden ? 0.3 : 0.7))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 15)
+                            .stroke(Color.white.opacity(dockManager.isDockHidden ? 0.1 : 0.3), lineWidth: 1)
+                    )
+            )
+            .scaleEffect(dockManager.isVisible ? 1.0 : 0.8)
+            .opacity(dockManager.isDockHidden ? 0.4 : 1.0)
+            .offset(dragOffset)
+            .position(x: g.size.width / 2, y: g.size.height / 2)
         }
-        .padding(.vertical, 15)  
-        .padding(.horizontal, dynamicPadding)
-        .frame(width: dockManager.dockWidth)
-        .background(
-            RoundedRectangle(cornerRadius: 15)
-                .fill(Color.black.opacity(dockManager.isDockHidden ? 0.3 : 0.7))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 15)
-                        .stroke(Color.white.opacity(dockManager.isDockHidden ? 0.1 : 0.3), lineWidth: 1)
-                )
-        )
-        .scaleEffect(dockManager.isVisible ? 1.0 : 0.8)
-        .opacity(dockManager.isDockHidden ? 0.4 : 1.0)
-        .offset(dragOffset)
+
+
+
+        .ignoresSafeArea()
         .gesture(
             DragGesture(minimumDistance: 5)
             .onChanged { value in
@@ -797,7 +826,7 @@ public struct MultitaskDockSwiftView: View {
                 
                 if dockManager.isPositionChangeGesture(for: hcFrame, translation: value.translation) {
                     let screenBounds = UIScreen.main.bounds
-                    let targetX = currentPhysicalFrame.midX < screenBounds.width / 2 ? 0 : screenBounds.width - currentPhysicalFrame.width
+                    let targetX = dockManager.calculateTargetX(isDockHidden: false, isOnRightSide: currentPhysicalFrame.midX > screenBounds.width / 2, dockWidth: dockManager.dockWidth, screenWidth: screenBounds.width)
                     
                     let safeAreaInsets = dockManager.safeAreaInsets
                     let dockVerticalMargin = MultitaskDockManager.Constants.dockVerticalMargin
@@ -846,12 +875,9 @@ public struct MultitaskDockSwiftView: View {
                 let targetY = max(minY, min(maxY, currentPhysicalFrame.origin.y))
                 
                 let targetX: CGFloat
-                if dockManager.isDockHidden {
-                    let isOnRightSide = hcFrame.origin.x > screenBounds.width / 2
-                    targetX = dockManager.calculateTargetX(isDockHidden: true, isOnRightSide: isOnRightSide, dockWidth: currentPhysicalFrame.width, screenWidth: screenBounds.width)
-                } else {
-                    targetX = currentPhysicalFrame.midX < screenBounds.width / 2 ? safeAreaInsets.left : screenBounds.width - currentPhysicalFrame.width - safeAreaInsets.right
-                }
+
+                let isOnRightSide = hcFrame.origin.x > screenBounds.width / 2
+                targetX = dockManager.calculateTargetX(isDockHidden: true, isOnRightSide: isOnRightSide, dockWidth: currentPhysicalFrame.width, screenWidth: screenBounds.width)
                 
                 let finalPhysicalPosition = CGPoint(x: targetX, y: targetY)
                 
