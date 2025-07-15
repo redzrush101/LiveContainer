@@ -414,6 +414,12 @@ void UIKitFixesInit(void) {
 
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    if(_isMaximized) {
+        [self.appSceneVC.presenter.scene updateSettingsWithBlock:^(UIMutableApplicationSceneSettings *settings) {
+            [self updateMaximizedFrameWithSettings:settings];
+        }];
+    }
+    
     BOOL bottomWindowBar = [change[NSKeyValueChangeNewKey] boolValue];
     [UIView animateWithDuration:0.3 animations:^{
         if(bottomWindowBar) {
