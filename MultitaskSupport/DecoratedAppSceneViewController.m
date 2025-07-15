@@ -517,8 +517,8 @@ void UIKitFixesInit(void) {
     CGRect newFrame = CGRectMake(self.originalFrame.origin.x * maxFrame.size.width, self.originalFrame.origin.y * maxFrame.size.height, self.originalFrame.size.width, self.originalFrame.size.height);
     CGPoint center = self.view.center;
     CGRect frame = CGRectZero;
-    frame.size.width = MIN(newFrame.size.width*self.scaleRatio, maxFrame.size.width);
-    frame.size.height = MIN(newFrame.size.height*self.scaleRatio, maxFrame.size.height);
+    frame.size.width = MIN(newFrame.size.width, maxFrame.size.width);
+    frame.size.height = MIN(newFrame.size.height, maxFrame.size.height);
     CGFloat oobOffset = MAX(30, frame.size.width - 30);
     frame.origin.x = MAX(maxFrame.origin.x - oobOffset, MIN(CGRectGetMaxX(maxFrame) - frame.size.width + oobOffset, center.x - frame.size.width / 2));
     frame.origin.y = MAX(maxFrame.origin.y, MIN(center.y - frame.size.height / 2, CGRectGetMaxY(maxFrame) - frame.size.height));
