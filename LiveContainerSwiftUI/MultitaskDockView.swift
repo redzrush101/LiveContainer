@@ -256,10 +256,25 @@ class AppInfoProvider {
             name: UserDefaults.didChangeNotification,
             object: LCUtils.appGroupUserDefault
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(deviceOrientationDidChange),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil
+        )
     }
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+        NotificationCenter.default.removeObserver(self, name: UIDevice.orientationDidChangeNotification, object: nil)
+    }
+
+    @objc private func deviceOrientationDidChange() {
+        DispatchQueue.main.async {
+            if self.isVisible {
+                self.updateDockFrame()
+            }
+        }
     }
     
     @objc private func userDefaultsDidChange() {
@@ -281,7 +296,7 @@ class AppInfoProvider {
     }
 
     private func updateDockFrame(animated: Bool = true) {
-        guard isVisible, let hostingController = hostingController else { return }
+        guard let hostingController = hostingController else { return }
 
         let screenBounds = keyWindow!.bounds
         let currentDockWidth = self.dockWidth
@@ -318,9 +333,15 @@ class AppInfoProvider {
         }
     }
 
-    private func calculateTargetX(isDockHidden: Bool, isOnRightSide: Bool, dockWidth: CGFloat, screenWidth: CGFloat) -> CGFloat {
+    func calculateTargetX(isDockHidden: Bool, isOnRightSide: Bool, dockWidth: CGFloat, screenWidth: CGFloat) -> CGFloat {
         if isDockHidden {
-            return isOnRightSide ? screenWidth - Constants.dockHiddenOffset : -dockWidth + Constants.dockHiddenOffset
+            let safeInsets = self.safeAreaInsets
+            var ans : CGFloat
+            if isOnRightSide {
+                return (screenWidth - safeInsets.right) - Constants.dockHiddenOffset
+            } else {
+                return safeInsets.left - dockWidth + Constants.dockHiddenOffset
+            }
         } else {
             return isOnRightSide ? screenWidth - dockWidth : 0
         }
@@ -387,16 +408,18 @@ class AppInfoProvider {
             let currentDockWidth = self.dockWidth
             let initialHeight = Constants.initialDockShowHeight
             
-            hostingController.view.frame = CGRect(
-                x: screenBounds.width - currentDockWidth,
-                y: (screenBounds.height - initialHeight) / 2,
-                width: currentDockWidth,
-                height: initialHeight
-            )
+            // If not already in view hierarchy, add it
+            if hostingController.view.superview == nil {
+                keyWindow.addSubview(hostingController.view)
+                hostingController.view.frame = CGRect(
+                    x: screenBounds.width - currentDockWidth,
+                    y: (screenBounds.height - initialHeight) / 2,
+                    width: currentDockWidth,
+                    height: initialHeight
+                )
+            }
             
             self.updateDockFrame(animated: false) 
-            
-            keyWindow.addSubview(hostingController.view)
             
             self.setupEdgeGestureRecognizers()
             
@@ -431,10 +454,14 @@ class AppInfoProvider {
                 hostingController.view.alpha = 0
                 let finalScale = Constants.initialScale
                 hostingController.view.transform = CGAffineTransform(scaleX: finalScale, y: finalScale)
+                // Move off-screen to hide, but keep in view hierarchy
+                let screenBounds = UIScreen.main.bounds
+                let currentDockWidth = self.dockWidth
+                let targetX = self.calculateTargetX(isDockHidden: true, isOnRightSide: hostingController.view.frame.midX > screenBounds.width / 2, dockWidth: currentDockWidth, screenWidth: screenBounds.width)
+                let targetY = hostingController.view.frame.origin.y // Keep current Y
+                hostingController.view.frame.origin = CGPoint(x: targetX, y: targetY)
             } completion: { _ in
-                hostingController.view.removeFromSuperview()
                 self.isVisible = false
-
                 hostingController.view.transform = .identity
             }
         }
@@ -494,7 +521,7 @@ class AppInfoProvider {
         let horizontalDistance = abs(translation.width)
         let verticalDistance = abs(translation.height)
         
-        guard horizontalDistance > verticalDistance, horizontalDistance > Constants.hideGestureThreshold else {
+        guard !self.isDockHidden, horizontalDistance > verticalDistance, horizontalDistance > Constants.hideGestureThreshold else {
             return false
         }
         
@@ -821,11 +848,9 @@ public struct MultitaskDockSwiftView: View {
                 let targetX: CGFloat
                 if dockManager.isDockHidden {
                     let isOnRightSide = hcFrame.origin.x > screenBounds.width / 2
-                    targetX = isOnRightSide ? 
-                        screenBounds.width - MultitaskDockManager.Constants.dockHiddenOffset : 
-                        -currentPhysicalFrame.width + MultitaskDockManager.Constants.dockHiddenOffset
+                    targetX = dockManager.calculateTargetX(isDockHidden: true, isOnRightSide: isOnRightSide, dockWidth: currentPhysicalFrame.width, screenWidth: screenBounds.width)
                 } else {
-                    targetX = currentPhysicalFrame.midX < screenBounds.width / 2 ? 0 : screenBounds.width - currentPhysicalFrame.width
+                    targetX = currentPhysicalFrame.midX < screenBounds.width / 2 ? safeAreaInsets.left : screenBounds.width - currentPhysicalFrame.width - safeAreaInsets.right
                 }
                 
                 let finalPhysicalPosition = CGPoint(x: targetX, y: targetY)
