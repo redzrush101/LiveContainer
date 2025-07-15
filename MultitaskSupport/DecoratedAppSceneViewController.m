@@ -246,7 +246,11 @@ void UIKitFixesInit(void) {
 
 - (void)scaleSliderChanged:(_UIPrototypingMenuSlider *)slider {
     self.scaleRatio = slider.value;
-    [_appSceneVC setScale:slider.value];
+    self.appSceneVC.scaleRatio = _scaleRatio;
+    self.appSceneVC.contentView.layer.sublayerTransform = CATransform3DMakeScale(_scaleRatio, _scaleRatio, 1.0);
+    [self.appSceneVC updateFrameWithSettingsBlock:^(UIMutableApplicationSceneSettings *settings) {
+        [self updateMaximizedSafeAreaWithSettings:settings];
+    }];
 }
 
 - (void)closeWindow {
@@ -479,7 +483,7 @@ void UIKitFixesInit(void) {
     [self.view.superview bringSubviewToFront:self.view];
 }
 
-- (void)updateMaximizedFrameWithSettings:(UIMutableApplicationSceneSettings *)settings {
+- (UIEdgeInsets)updateMaximizedSafeAreaWithSettings:(UIMutableApplicationSceneSettings *)settings {
     BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
     UIEdgeInsets safeAreaInsets = self.view.window.safeAreaInsets;
     if(bottomWindowBar) {
@@ -491,6 +495,10 @@ void UIKitFixesInit(void) {
         settings.peripheryInsets = UIEdgeInsetsMake(0, safeAreaInsets.left, safeAreaInsets.bottom, safeAreaInsets.right);
         safeAreaInsets.bottom = safeAreaInsets.left = safeAreaInsets.right = 0;
     }
+    
+    // scale peripheryInsets to match the scale ratio
+    settings.peripheryInsets = UIEdgeInsetsMake(settings.peripheryInsets.top/_scaleRatio, settings.peripheryInsets.left/_scaleRatio, settings.peripheryInsets.bottom/_scaleRatio, settings.peripheryInsets.right/_scaleRatio);
+    
     switch(UIApplication.sharedApplication.statusBarOrientation) {
         case UIInterfaceOrientationLandscapeLeft:
             settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(settings.peripheryInsets.left, settings.peripheryInsets.top, settings.peripheryInsets.right, settings.peripheryInsets.bottom);
@@ -504,7 +512,11 @@ void UIKitFixesInit(void) {
     }
     
     safeAreaInsets.bottom = 0;
-    CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, safeAreaInsets);
+    return safeAreaInsets;
+}
+
+- (void)updateMaximizedFrameWithSettings:(UIMutableApplicationSceneSettings *)settings {
+    CGRect maxFrame = UIEdgeInsetsInsetRect(self.view.window.frame, [self updateMaximizedSafeAreaWithSettings:settings]);
     self.view.frame = maxFrame;
 }
 
