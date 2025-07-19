@@ -269,7 +269,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                             }
                         }
                     } label: {
-                        Label("lc.appList.sort".loc, systemImage: "ellipsis.circle")
+                        Label("lc.appList.sort".loc, systemImage: "line.3.horizontal.decrease.circle")
                     }
                 }
             }
