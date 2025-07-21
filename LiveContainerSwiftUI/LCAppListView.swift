@@ -241,7 +241,15 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                         } label: {
                             Image("SideStoreBadge")
                                 .resizable()
-                                .scaledToFit()
+                                .renderingMode(.template)
+                                .foregroundColor({
+                                    if SharedModel.isLiquidGlassEnabled {
+                                        return Color.primary
+                                    } else {
+                                        return Color.blue
+                                    }
+                                }())
+                                .frame(width: UIFont.preferredFont(forTextStyle: .body).lineHeight, height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
 
                         }
                     } else {
@@ -380,7 +388,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             handleURL(url: url)
         }
         .apply {
-            if #available(iOS 19.0, *), sharedModel.isLiquidGlassSearchEnabled {
+            if #available(iOS 19.0, *), SharedModel.isLiquidGlassSearchEnabled {
                 $0
             } else {
                 $0.searchable(text: $searchContext.query)
