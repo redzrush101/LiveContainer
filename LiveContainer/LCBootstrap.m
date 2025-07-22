@@ -145,8 +145,6 @@ void overwriteMainNSBundle(NSBundle *newBundle) {
     assert(![NSBundle.mainBundle.executablePath isEqualToString:oldPath]);
 }
 
-void hook_do_nothing(void) {}
-
 int hook__NSGetExecutablePath_overwriteExecPath(char*** dyldApiInstancePtr, char* newPath, uint32_t* bufsize) {
     assert(dyldApiInstancePtr != 0);
     char** dyldConfig = dyldApiInstancePtr[1];
