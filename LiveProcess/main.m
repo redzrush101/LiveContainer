@@ -10,6 +10,7 @@
 #import <mach-o/dyld.h>
 #import "../LiveContainer/utils.h"
 #import "../LiveContainer/Tweaks/Tweaks.h"
+#import "../SideStore/XPCServer.h"
 
 @interface LiveProcessHandler : NSObject<NSExtensionRequestHandling>
 @end
@@ -32,6 +33,18 @@ static NSDictionary *retrievedAppInfo;
 }
 @end
 
+@interface NSXPCDecoder : NSObject
+
+@end
+
+@implementation NSXPCDecoder(lp)
+
+- (void)_validateAllowedClass:(Class)arg1 forKey:(id)arg2 allowingInvocations:(bool)arg3 {
+    return;
+}
+
+@end
+
 extern int LiveContainerMain(int argc, char *argv[]);
 int LiveProcessMain(int argc, char *argv[]) {
     // Let NSExtensionContext initialize, once it's done it will call CFRunLoopStop
@@ -44,6 +57,36 @@ int LiveProcessMain(int argc, char *argv[]) {
     NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
     [lcUserDefaults setObject:appInfo[@"selected"] forKey:@"selected"];
     [lcUserDefaults setObject:appInfo[@"selectedContainer"] forKey:@"selectedContainer"];
+    
+    
+    if ([appInfo[@"selected"] isEqualToString:@"builtinSideStore"]) {
+        NSData* bookmark = appInfo[@"bookmark"];
+        if(bookmark) {
+            bool isStale = false;
+            NSError* error = nil;
+            NSURL* url = [NSURL URLByResolvingBookmarkData:bookmark options:(1 << 10) relativeToURL:nil bookmarkDataIsStale:&isStale error:&error];
+            bool access = [url startAccessingSecurityScopedResource];
+            if(access) {
+                [lcUserDefaults setObject:url.path forKey:@"specifiedSideStoreContainerPath"];
+            }
+        }
+        NSXPCListenerEndpoint* endpoint = appInfo[@"endpoint"];
+
+        NSXPCConnection* connection = [[NSXPCConnection alloc] initWithListenerEndpoint:endpoint];
+        connection.remoteObjectInterface = [NSXPCInterface interfaceWithProtocol:@protocol(RefreshServer)];
+        connection.interruptionHandler = ^{
+            NSLog(@"interrupted!!!");
+        };
+        
+        [connection activate];
+        
+        NSObject<RefreshServer>* proxy = [connection remoteObjectProxy];
+        LiveProcessSideStoreHandler.shared.server = proxy;
+        LiveProcessSideStoreHandler.shared.connection = connection;
+        
+    }
+
+    
     return LiveContainerMain(argc, argv);
 }
 
