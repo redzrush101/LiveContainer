@@ -113,8 +113,14 @@ void hideLiveContainerImageCallback(const struct mach_header* header, intptr_t v
     if(!strncmp(info.dli_fname, lcMainBundlePath, strlen(lcMainBundlePath)) || strstr(info.dli_fname, "/procursus/") != 0) {
         char fakePath[PATH_MAX];
         snprintf(fakePath, sizeof(fakePath), "/usr/lib/%p.dylib", header);
-        vm_protect(mach_task_self(), (vm_address_t)info.dli_fname, PATH_MAX, false, PROT_READ | PROT_WRITE);
+        kern_return_t ret = vm_protect(mach_task_self(), (vm_address_t)info.dli_fname, PATH_MAX, false, PROT_READ | PROT_WRITE);
+        if(ret != KERN_SUCCESS) {
+            os_thread_self_restrict_tpro_to_rw();
+        }
         strcpy((char *)info.dli_fname, fakePath);
+        if(ret != KERN_SUCCESS) {
+            os_thread_self_restrict_tpro_to_ro();
+        }
     }
 }
 
