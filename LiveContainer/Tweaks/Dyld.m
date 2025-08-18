@@ -130,23 +130,11 @@ void* getCachedSymbol(NSString* symbolName, mach_header_u* header) {
         return NULL;
     }
     NSData* cachedSymbolUUID = symbolOffsetDict[@"uuid"];
-    NSString* cachedSymbolSystemVersion = symbolOffsetDict[@"build"];
-    if(!cachedSymbolUUID || !cachedSymbolSystemVersion) {
+    if(!cachedSymbolUUID) {
         return NULL;
     }
     const uint8_t* uuid = LCGetMachOUUID(header);
     if(!uuid || memcmp(uuid, [cachedSymbolUUID bytes], 16)) {
-        return NULL;
-    }
-    
-    size_t size;
-    char *build = malloc(128);
-    sysctlbyname("kern.osversion", build, &size, NULL, 0);
-    
-    NSString *buildString = [NSString stringWithUTF8String:build];
-    free(build);
-    
-    if(![buildString isEqualToString:cachedSymbolSystemVersion]) {
         return NULL;
     }
     
@@ -158,18 +146,10 @@ void saveCachedSymbol(NSString* symbolName, mach_header_u* header, uint64_t offs
     if(!allSymbolOffsetDict) {
         allSymbolOffsetDict = [[NSMutableDictionary alloc] init];
     }
-    size_t size;
-    char *build = malloc(128);
-    sysctlbyname("kern.osversion", build, &size, NULL, 0);
-    
-    NSString *buildString = [NSString stringWithUTF8String:build];
-    free(build);
-
     
     allSymbolOffsetDict[symbolName] = @{
         @"uuid": [NSData dataWithBytes:LCGetMachOUUID(header) length:16],
         @"offset": @(offset),
-        @"build": buildString
     };
     [NSUserDefaults.lcSharedDefaults setObject:allSymbolOffsetDict forKey:@"symbolOffsetCache"];
 }

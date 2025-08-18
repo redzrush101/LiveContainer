@@ -220,7 +220,6 @@ extern NSBundle *lcMainBundle;
     
     NSNumber* num57 = info[lc];
     if(![num57 isKindOfClass:NSNumber.class]) {
-        num57 = info[lc] = @0;
         return NO;
     }
     
