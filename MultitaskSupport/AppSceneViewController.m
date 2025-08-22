@@ -20,7 +20,6 @@
 
 @interface AppSceneViewController()
 @property(nonatomic) UIWindowScene *hostScene;
-@property(nonatomic) UIMutableApplicationSceneSettings *settings;
 @property(nonatomic) NSString *sceneID;
 @property(nonatomic) NSExtension* extension;
 @property(nonatomic) bool isAppTerminationCleanUpCalled;
@@ -39,6 +38,7 @@
     self.bundleId = bundleId;
     self.scaleRatio = 1.0;
     self.isAppTerminationCleanUpCalled = false;
+    self.settings = [UIMutableApplicationSceneSettings new];
     // init extension
     NSBundle *liveProcessBundle = [NSBundle bundleWithPath:[NSBundle.mainBundle.builtInPlugInsPath stringByAppendingPathComponent:@"LiveProcess.appex"]];
     if(!liveProcessBundle) {
@@ -106,7 +106,7 @@
     definition.specification = [UIApplicationSceneSpecification specification];
     FBSMutableSceneParameters *parameters = [PrivClass(FBSMutableSceneParameters) parametersForSpecification:definition.specification];
     
-    UIMutableApplicationSceneSettings *settings = [UIMutableApplicationSceneSettings new];
+    UIMutableApplicationSceneSettings *settings = self.settings;
     settings.canShowAlerts = YES;
     settings.cornerRadiusConfiguration = [[PrivClass(BSCornerRadiusConfiguration) alloc] initWithTopLeft:self.view.layer.cornerRadius bottomLeft:self.view.layer.cornerRadius bottomRight:self.view.layer.cornerRadius topRight:self.view.layer.cornerRadius];
     settings.displayConfiguration = UIScreen.mainScreen.displayConfiguration;
@@ -126,16 +126,11 @@
         UIEdgeInsets defaultInsets = self.view.window.safeAreaInsets;
         settings.peripheryInsets = defaultInsets;
         settings.safeAreaInsetsPortrait = defaultInsets;
-    } else {
-        // it seems some apps don't honor these settings so we don't cover the top of the app
-        settings.peripheryInsets = UIEdgeInsetsMake(0, 0, 0, 0);
-        settings.safeAreaInsetsPortrait = UIEdgeInsetsMake(0, 0, 0, 0);
     }
     
     settings.statusBarDisabled = !self.isNativeWindow;
     //settings.previewMaximumSize =
     //settings.deviceOrientationEventsEnabled = YES;
-    self.settings = settings;
     parameters.settings = settings;
     
     UIMutableApplicationSceneClientSettings *clientSettings = [UIMutableApplicationSceneClientSettings new];

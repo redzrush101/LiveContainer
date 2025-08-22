@@ -48,6 +48,7 @@ struct LCSettingsView: View {
     
     @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
+    @AppStorage("LCLaunchMultitaskMaximized") var launchMultitaskMaximized = false
     @AppStorage("LCMultitaskBottomWindowBar", store: LCUtils.appGroupUserDefault) var bottomWindowBar = false
     @AppStorage("LCAutoEndPiP", store: LCUtils.appGroupUserDefault) var autoEndPiP = false
     @AppStorage("LCDockWidth", store: LCUtils.appGroupUserDefault) var dockWidth: Double = 80
@@ -234,6 +235,9 @@ struct LCSettingsView: View {
                     }
                     
                     if multitaskMode == .virtualWindow {
+                        Toggle(isOn: $launchMultitaskMaximized) {
+                            Text("lc.settings.launchMultitaskMaximized".loc)
+                        }
                         Toggle(isOn: $autoEndPiP) {
                             Text("lc.settings.autoEndPiP".loc)
                         }
