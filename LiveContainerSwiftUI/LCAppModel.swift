@@ -188,21 +188,19 @@ class LCAppModel: ObservableObject, Hashable {
             }
         }
         
-        if(multitask && MultitaskManager.isUsing(container: uiSelectedContainer!.folderName)) {
-            throw "lc.container.inUse".loc + "\n MultiTask"
-        }
+        // this is rerouted to bringing app to front, so not needed here?
+//        if(MultitaskManager.isUsing(container: uiSelectedContainer!.folderName)) {
+//            throw "lc.container.inUse".loc + "\n MultiTask"
+//        }
         
+        // if the selected container is in use (either other lc or multitask), open the host lc associated with it
         if
             let fn = uiSelectedContainer?.folderName,
-            var runningLC = LCUtils.getContainerUsingLCScheme(withFolderName: fn),
-            !(runningLC == "liveprocess" && DataManager.shared.model.multiLCStatus != 2)
+            var runningLC = LCUtils.getContainerUsingLCScheme(withFolderName: fn)
         {
-            if(!multitask && runningLC == "liveprocess" && DataManager.shared.model.multiLCStatus == 2) {
-                // we can't control the extension from lc2, so we launch lc1
-                runningLC = "livecontainer"
-            }
-
-            let openURL = URL(string: "\(runningLC)://livecontainer-launch?bundle-name=\(self.appInfo.relativeBundlePath!)&container-folder-name=\(fn)")!
+            runningLC = (runningLC as NSString).deletingPathExtension
+            
+            let openURL = URL(string: "\(runningLC)://")!
             if await UIApplication.shared.canOpenURL(openURL) {
                 await UIApplication.shared.open(openURL)
                 return

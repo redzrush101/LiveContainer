@@ -46,6 +46,7 @@ int dyld_get_program_sdk_version(void);
 + (NSURL *)appGroupPath;
 + (NSString *)storeInstallURLScheme;
 + (NSString *)getVersionInfo;
++ (NSString *)liveProcessBundleIdentifier;
 @end
 
 @interface NSUserDefaults(LiveContainer)

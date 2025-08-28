@@ -221,7 +221,7 @@ struct LCSettingsView: View {
                     }
                 }
                 
-                if #available(iOS 16.1, *), sharedModel.multiLCStatus != 2 {
+                if #available(iOS 16.1, *) {
                     if(UIApplication.shared.supportsMultipleScenes) {
                         Picker(selection: $multitaskMode) {
                             Text("lc.settings.multitaskMode.virtualWindow".loc).tag(MultitaskMode.virtualWindow)

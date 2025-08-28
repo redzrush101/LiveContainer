@@ -285,7 +285,13 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     
     if(isSharedBundle) {
-        [LCSharedUtils setContainerUsingByLC:lcAppUrlScheme folderName:dataUUID];
+        NSString *urlScheme = lcAppUrlScheme;
+        if(isLiveProcess) {
+            NSString *hostScheme = [lcUserDefaults stringForKey:@"hostUrlScheme"];
+            [lcUserDefaults removeObjectForKey:@"hostUrlScheme"];
+            urlScheme = [hostScheme stringByAppendingPathExtension:urlScheme];
+        }
+        [LCSharedUtils setContainerUsingByLC:urlScheme folderName:dataUUID auditToken:0];
     }
     
     NSError *error;
@@ -609,8 +615,8 @@ int LiveContainerMain(int argc, char *argv[]) {
         [lcUserDefaults removeObjectForKey:@"selected"];
         [lcUserDefaults removeObjectForKey:@"selectedContainer"];
         
-        if([runningLC isEqualToString:@"liveprocess"]) {
-            runningLC = @"livecontainer";
+        if([runningLC hasSuffix:@"liveprocess"]) {
+            runningLC = runningLC.stringByDeletingPathExtension;
         }
         
         NSString* selectedAppBackUp = selectedApp;

@@ -8,6 +8,7 @@
 #import "../MultitaskSupport/DecoratedAppSceneViewController.h"
 #import "../ZSign/zsigner.h"
 #import "LiveContainerSwiftUI-Swift.h"
+#import "utils.h"
 
 Class LCSharedUtilsClass = nil;
 
@@ -68,13 +69,27 @@ Class LCSharedUtilsClass = nil;
     return [LCSharedUtilsClass getContainerUsingLCSchemeWithFolderName:folderName];
 }
 
-#pragma mark Multitasking (WIP, PoC only)
-+ (void)launchMultitaskGuestApp:(NSString *)displayName completionHandler:(void (^)(NSError *error))completionHandler {
+#pragma mark Multitasking
++ (NSString *)liveProcessBundleIdentifier {
+    // first check if we have LiveProcess extension in our own bundle
     NSBundle *liveProcessBundle = [NSBundle bundleWithPath:[NSBundle.mainBundle.builtInPlugInsPath stringByAppendingPathComponent:@"LiveProcess.appex"]];
-    if(!liveProcessBundle) {
+    if(liveProcessBundle) {
+        return liveProcessBundle.bundleIdentifier;
+    }
+    
+    // in LC2, attempt to guess LC1's LiveProcess extension
+    NSString *bundleID = [NSString stringWithFormat:@"com.kdt.livecontainer.%@.LiveProcess", self.teamIdentifier];
+    if([NSExtension extensionWithIdentifier:bundleID error:nil]) {
+        return bundleID;
+    }
+    
+    return nil;
+}
+
++ (void)launchMultitaskGuestApp:(NSString *)displayName completionHandler:(void (^)(NSError *error))completionHandler {
+    if(!self.liveProcessBundleIdentifier) {
         NSError *error = [NSError errorWithDomain:displayName code:2 userInfo:@{NSLocalizedDescriptionKey: @"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions"}];
         completionHandler(error);
-        return;
     }
     
     NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
@@ -86,7 +101,7 @@ Class LCSharedUtilsClass = nil;
     
     dispatch_async(dispatch_get_main_queue(), ^{
         if (@available(iOS 16.1, *)) {
-            if(UIApplication.sharedApplication.supportsMultipleScenes && [[[NSUserDefaults alloc] initWithSuiteName:[LCUtils appGroupID]] integerForKey:@"LCMultitaskMode" ] == 1) {
+            if(UIApplication.sharedApplication.supportsMultipleScenes && [NSUserDefaults.lcSharedDefaults integerForKey:@"LCMultitaskMode"] == 1) {
                 [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId];
                 MultitaskDockManager *dock = [MultitaskDockManager shared];
                 [dock addRunningApp:displayName appUUID:dataUUID view:nil];
