@@ -262,7 +262,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
                 NSString *expectedBundleId = [entStr substringFromIndex:dotRange.location + 1];
                 if(![infoPlist[@"CFBundleIdentifier"] isEqualToString:expectedBundleId]) {
                     infoPlist[@"CFBundleIdentifier"] = expectedBundleId;
-                    [infoPlist writeToFile:[NSString stringWithFormat:@"%@/Info.plist", bundlePath] atomically:YES];
+                    [infoPlist writeBinToFile:[NSString stringWithFormat:@"%@/Info.plist", bundlePath] atomically:YES];
                 }
             }
         }

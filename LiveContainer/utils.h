@@ -38,3 +38,7 @@ uint64_t aarch64_emulate_adrp_ldr(uint32_t instruction, uint32_t ldrInstruction,
 + (bool)isSideStore;
 + (bool)sideStoreExist;
 @end
+
+@interface NSDictionary(lc)
+- (BOOL)writeBinToFile:(NSString *)path atomically:(BOOL)useAuxiliaryFile;
+@end

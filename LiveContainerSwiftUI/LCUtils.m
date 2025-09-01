@@ -8,7 +8,6 @@
 #import "../MultitaskSupport/DecoratedAppSceneViewController.h"
 #import "../ZSign/zsigner.h"
 #import "LiveContainerSwiftUI-Swift.h"
-#import "utils.h"
 
 Class LCSharedUtilsClass = nil;
 
@@ -268,7 +267,7 @@ Class LCSharedUtilsClass = nil;
     [NSFileManager.defaultManager copyItemAtPath:[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/TestJITLess.dylib"] toPath:tmpLibPath error:nil];
     NSMutableDictionary *info = NSBundle.mainBundle.infoDictionary.mutableCopy;
     info[@"CFBundleExecutable"] = @"LiveContainer.tmp";
-    [info writeToFile:tmpInfoPath atomically:YES];
+    [info writeBinToFile:tmpInfoPath atomically:YES];
 
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     __block bool signSuccess = false;

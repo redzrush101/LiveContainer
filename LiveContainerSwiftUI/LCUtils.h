@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "LCMachOUtils.h"
+#import "utils.h"
 @import UIKit;
 
 typedef NS_ENUM(NSInteger, Store){

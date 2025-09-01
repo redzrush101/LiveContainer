@@ -83,11 +83,12 @@ class LCContainer : ObservableObject, Hashable {
             if(!fm.fileExists(atPath: infoDictUrl.deletingLastPathComponent().path)) {
                 try fm.createDirectory(at: infoDictUrl.deletingLastPathComponent(), withIntermediateDirectories: true)
             }
+            
+            let plistData = try PropertyListSerialization.data(fromPropertyList: infoDict as Any, format: .binary, options: 0)
+            try plistData.write(to: infoDictUrl)
         } catch {
             
         }
-        
-        (infoDict! as NSDictionary).write(to: infoDictUrl, atomically: true)
     }
     
     func reloadInfoPlist() {

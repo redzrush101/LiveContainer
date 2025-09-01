@@ -278,7 +278,7 @@ extern NSBundle *lcMainBundle;
         info[lc] = @(val57);
     }
 
-    [info writeToFile:infoPath.path atomically:YES];
+    [info writeBinToFile:infoPath.path atomically:YES];
 }
 
 // move app data to private folder to prevent 0xdead10cc https://forums.developer.apple.com/forums/thread/126438
