@@ -312,7 +312,7 @@ Class LCSharedUtilsClass = nil;
     [manager createDirectoryAtURL:tmpPayloadPath withIntermediateDirectories:YES attributes:nil error:error];
     if (*error) return nil;
     
-    NSURL *tmpIPAPath = [tmpPath URLByAppendingPathComponent:@"LiveContainer2.ipa"];
+    NSURL *tmpIPAPath = [tmpPath URLByAppendingPathComponent:[NSString stringWithFormat:@"%@.ipa", newBundleName]];
     
 
     [manager copyItemAtURL:bundlePath toURL:[tmpPayloadPath URLByAppendingPathComponent:@"App.app"] error:error];
@@ -346,7 +346,7 @@ Class LCSharedUtilsClass = nil;
     NSURL* appBundlePath = [tmpPayloadPath URLByAppendingPathComponent:@"App.app"];
     
     NSURL* execFromPath = [appBundlePath URLByAppendingPathComponent:infoDict[@"CFBundleExecutable"]];
-    infoDict[@"CFBundleExecutable"] = @"LiveContainer2";
+    infoDict[@"CFBundleExecutable"] = newBundleName;
     NSURL* execToPath = [appBundlePath URLByAppendingPathComponent:infoDict[@"CFBundleExecutable"]];
     
     // MARK: patch main executable

@@ -162,6 +162,20 @@ class LCAppModel: ObservableObject, Hashable {
         
         // ask user if they want to terminate all multitasking apps
         if MultitaskManager.isMultitasking() && !multitask {
+            if #available(iOS 16.0, *), let currentDataFolder = containerFolderName != nil ? containerFolderName : uiSelectedContainer?.folderName,
+               MultitaskManager.isUsing(container: currentDataFolder) {
+                var found = false
+                if #available(iOS 16.1, *) {
+                    found = MultitaskWindowManager.openExistingAppWindow(dataUUID: currentDataFolder)
+                }
+                if !found {
+                    found = MultitaskDockManager.shared.bringMultitaskViewToFront(uuid: currentDataFolder)
+                }
+                if found {
+                    return
+                }
+            }
+            
             guard let ans = await delegate?.showRunWhenMultitaskAlert(), ans else {
                 return
             }

@@ -24,7 +24,6 @@ struct LCSettingsView: View {
     
     @Binding var appDataFolderNames: [String]
 
-    @StateObject private var installLC2Alert = AlertHelper<Int>()
     @State private var certificateDataFound = false
     
     @StateObject private var certificateImportAlert = YesNoHelper()
@@ -32,8 +31,6 @@ struct LCSettingsView: View {
     @StateObject private var certificateRemoveAlert = YesNoHelper()
     @StateObject private var certificateImportFileAlert = AlertHelper<URL>()
     @StateObject private var certificateImportPasswordAlert = InputHelper()
-    @State private var showShareSheet = false
-    @State private var shareURL : URL? = nil
     
     @AppStorage("LCFrameShortcutIcons") var frameShortIcon = false
     @AppStorage("LCSwitchAppWithoutAsking") var silentSwitchApp = false
@@ -116,13 +113,11 @@ struct LCSettingsView: View {
                 }
                 if (store != .Unknown && store != .ADP) || LCUtils.isAppGroupAltStoreLike() {
                     Section{
-                        Button {
-                            Task { await installAnotherLC() }
+                        NavigationLink {
+                            LCMultiLCManagementView()
                         } label: {
                             if sharedModel.multiLCStatus == 0 {
                                 Text("lc.settings.multiLCInstall".loc)
-                            } else if sharedModel.multiLCStatus == 1 {
-                                Text("lc.settings.multiLCReinstall".loc)
                             } else if sharedModel.multiLCStatus == 2 {
                                 Text("lc.settings.multiLCIsSecond".loc)
                             }
@@ -367,12 +362,6 @@ struct LCSettingsView: View {
                 }
             }
             .navigationBarTitle("lc.tabView.settings".loc)
-            .onAppear {
-                sharedModel.updateMultiLCStatus()
-            }
-            .onForeground {
-                sharedModel.updateMultiLCStatus()
-            }
             .alert("lc.common.error".loc, isPresented: $errorShow){
             } message: {
                 Text(errorInfo)
@@ -380,27 +369,6 @@ struct LCSettingsView: View {
             .alert("lc.common.success".loc, isPresented: $successShow){
             } message: {
                 Text(successInfo)
-            }
-            .alert("lc.settings.multiLCInstall".loc, isPresented: $installLC2Alert.show) {
-                if(UserDefaults.sideStoreExist()) {
-                    Button {
-                        installLC2Alert.close(result: 2)
-                    } label: {
-                        Text("lc.settings.multiLCInstall.installWithBuiltInSideStore".loc)
-                    }
-                }
-                
-                Button {
-                    installLC2Alert.close(result: 1)
-                } label: {
-                    Text("lc.common.continue".loc)
-                }
-
-                Button("lc.common.cancel".loc, role: .cancel) {
-                    installLC2Alert.close(result: 0)
-                }
-            } message: {
-                Text("lc.settings.multiLCInstallAlertDesc %@".localizeWithFormat(storeName))
             }
             .alert("lc.settings.importCertificate".loc, isPresented: $certificateImportAlert.show) {
                 Button {
@@ -459,45 +427,9 @@ struct LCSettingsView: View {
                 }
             )
         }
-        .sheet(isPresented: $showShareSheet) {
-            if let shareURL = shareURL {
-                ActivityViewController(activityItems: [shareURL])
-            }
-        }
         .navigationViewStyle(StackNavigationViewStyle())
         .onOpenURL { url in
             handleURL(url: url)
-        }
-    }
-    
-    func installAnotherLC() async {
-        if !LCUtils.isAppGroupAltStoreLike() {
-            errorInfo = "lc.settings.unsupportedInstallMethod".loc
-            errorShow = true
-            return;
-        }
-        
-        guard let result = await installLC2Alert.open(), result != 0 else {
-            return
-        }
-        
-        do {
-            let packedIpaUrl = try LCUtils.archiveIPA(withBundleName: "LiveContainer2")
-            
-            shareURL = packedIpaUrl
-            
-            if(result == 2) {
-                let launchURLStr = packedIpaUrl.absoluteString
-                UserDefaults.standard.setValue(launchURLStr, forKey: "launchAppUrlScheme")
-                LCUtils.openSideStore()
-                return
-            }
-            
-            showShareSheet = true
-            
-        } catch {
-            errorInfo = error.localizedDescription
-            errorShow = true
         }
     }
     
