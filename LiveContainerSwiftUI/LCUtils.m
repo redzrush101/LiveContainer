@@ -325,7 +325,7 @@ Class LCSharedUtilsClass = nil;
     infoDict[@"CFBundleName"] = newBundleName;
     infoDict[@"CFBundleIdentifier"] = [NSString stringWithFormat:@"com.kdt.%@", newBundleName];
     infoDict[@"CFBundleURLTypes"][0][@"CFBundleURLSchemes"][0] = [newBundleName lowercaseString];
-    if([infoDict[@"CFBundleURLTypes"] count] > 1) {
+    while([infoDict[@"CFBundleURLTypes"] count] > 1) {
         [infoDict[@"CFBundleURLTypes"] removeLastObject];
     }
     [infoDict removeObjectForKey:@"UTExportedTypeDeclarations"];
@@ -430,9 +430,6 @@ Class LCSharedUtilsClass = nil;
         [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Intents.intentdefinition"] error:error];
         [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"ViewApp.intentdefinition"] error:error];
         [manager removeItemAtURL:[appBundlePath URLByAppendingPathComponent:@"Metadata.appintents"] error:error];
-        if([infoDict[@"CFBundleURLTypes"] count] > 1) {
-            [infoDict[@"CFBundleURLTypes"] removeLastObject];
-        }
         [infoDict removeObjectForKey:@"INIntentsSupported"];
         [infoDict removeObjectForKey:@"NSUserActivityTypes"];
     }
