@@ -25,6 +25,7 @@ NSString *lcAppGroupPath;
 NSString* lcAppUrlScheme;
 NSBundle* lcMainBundle;
 NSDictionary* guestAppInfo;
+NSDictionary* guestContainerInfo;
 NSString* lcGuestAppId;
 bool isLiveProcess = false;
 bool isSharedBundle = false;
@@ -49,6 +50,10 @@ bool sideStoreExist = false;
 }
 + (NSDictionary *)guestAppInfo {
     return guestAppInfo;
+}
+
++ (NSDictionary *)guestContainerInfo {
+    return guestContainerInfo;
 }
 
 + (bool)isLiveProcess {
@@ -404,6 +409,9 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         NSString *dirPath = [newHomePath stringByAppendingPathComponent:dir];
         [fm createDirectoryAtPath:dirPath withIntermediateDirectories:YES attributes:nil error:nil];
     }
+    
+    NSString* containerInfoPath = [newHomePath stringByAppendingPathComponent:@"LCContainerInfo.plist"];
+    guestContainerInfo = [NSDictionary dictionaryWithContentsOfFile:containerInfoPath];
     
     // Overwrite NSBundle
     overwriteMainNSBundle(appBundle);

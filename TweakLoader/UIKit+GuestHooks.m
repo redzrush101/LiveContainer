@@ -8,6 +8,7 @@
 UIInterfaceOrientation LCOrientationLock = UIInterfaceOrientationUnknown;
 NSMutableArray<NSString*>* LCSupportedUrlSchemes = nil;
 NSArray<NSString*>* LCUrlSchemes = nil;
+NSUUID* idForVendorUUID = nil;
 
 __attribute__((constructor))
 static void UIKitGuestHooksInit() {
@@ -39,6 +40,17 @@ static void UIKitGuestHooksInit() {
         }
 
     }
+    NSDictionary* guestContainerInfo = [NSUserDefaults guestContainerInfo];
+    if(guestContainerInfo[@"spoofIdentifierForVendor"]) {
+        NSString* idForVendorStr = guestContainerInfo[@"spoofedIdentifierForVendor"];
+        if([idForVendorStr isKindOfClass:NSString.class]) {
+            idForVendorUUID = [[NSUUID UUID] initWithUUIDString:idForVendorStr];
+            if(idForVendorUUID) {
+                swizzle(UIDevice.class, @selector(identifierForVendor), @selector(hook_identifierForVendor));
+            }
+        }
+    }
+    
     LCUrlSchemes = @[@"livecontainer", @"livecontainer2", @"livecontainer3"];
 }
 
@@ -622,4 +634,12 @@ BOOL canAppOpenItself(NSURL* url) {
         }
     }
 }
+@end
+
+@implementation UIDevice(hook)
+
+- (NSUUID*)hook_identifierForVendor {
+    return idForVendorUUID;
+}
+
 @end
