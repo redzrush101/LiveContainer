@@ -25,6 +25,37 @@ Class LCSharedUtilsClass = nil;
     LCSharedUtilsClass = NSClassFromString(@"LCSharedUtils");
 }
 
+(void)launchMultitaskGuestAppWithPIDCallback:(NSString *)displayName pidCompletionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
+    NSBundle *liveProcessBundle = [NSBundle bundleWithPath:[NSBundle.mainBundle.builtInPlugInsPath stringByAppendingPathComponent:@"LiveProcess.appex"]];
+    if(!liveProcessBundle) {
+        NSError *error = [NSError errorWithDomain:displayName code:2 userInfo:@{NSLocalizedDescriptionKey: @"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions"}];
+        if (completionHandler) completionHandler(nil, error);
+        return;
+    }
+
+    NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
+    NSString* bundleId = [lcUserDefaults stringForKey:@"selected"];
+    NSString* dataUUID = [lcUserDefaults stringForKey:@"selectedContainer"];
+
+    [lcUserDefaults removeObjectForKey:@"selected"];
+    [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *rootVC = ((UIWindowScene *)UIApplication.sharedApplication.connectedScenes.anyObject).keyWindow.rootViewController;
+        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID];
+        // Wire PID callback
+        launcherView.pidAvailableHandler = ^(NSNumber *pid, NSError *error) {
+            if (completionHandler) {
+                completionHandler(pid, error);
+            }
+        };
+        launcherView.view.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
+        launcherView.view.center = rootVC.view.center;
+        [rootVC addChildViewController:launcherView];
+        [rootVC.view addSubview:launcherView.view];
+    });
+}
+
 #pragma mark Certificate & password
 + (NSString *)teamIdentifier {
     return [LCSharedUtilsClass teamIdentifier];
