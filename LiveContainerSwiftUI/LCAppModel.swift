@@ -248,7 +248,7 @@ class LCAppModel: ObservableObject, Hashable {
         UserDefaults.standard.set(uiSelectedContainer?.folderName, forKey: "selectedContainer")
 
         if appInfo.isJITNeeded || appInfo.is32bit {
-            if multitask, #available(iOS 16.0, *) {
+            if multitask, #available(iOS 17.4, *) {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                     LCUtils.launchMultitaskGuestApp(withPIDCallback: appInfo.displayName(), pidCompletionHandler: { pidNumber, error in
                         if let error {
