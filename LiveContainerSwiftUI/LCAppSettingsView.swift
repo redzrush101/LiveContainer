@@ -138,13 +138,13 @@ struct LCAppSettingsView: View {
                 Toggle(isOn: $model.uiIsJITNeeded) {
                     Text("lc.appSettings.launchWithJit".loc)
                 }
-                if #available(iOS 26.0, *) {
+                if #available(iOS 26.0, *), model.uiIsJITNeeded {
                     HStack {
-                        Text("JIT Launch Script")
+                        Text("lc.appSettings.jit26.script".loc)
                         Spacer()
                         if let base64String = model.jitLaunchScriptJs, !base64String.isEmpty {
                             // Show a generic name since we're not storing the filename
-                            Text("Script Loaded")
+                            Text("lc.appSettings.jit26.scriptLoaded".loc)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                                 .foregroundColor(.primary)
@@ -181,20 +181,19 @@ struct LCAppSettingsView: View {
                                 rootViewController.present(picker, animated: true)
                             }
                         }) {
-                            Text("Select")
+                            Text("lc.common.select".loc)
                         }
-                        .disabled(!model.uiIsJITNeeded)
                     }
                 }
             } footer: {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("lc.appSettings.launchWithJitDesc".loc)
-                    if #available(iOS 26.0, *) {
-                        Text("Optional JavaScript file to run when JIT launching the app")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+
+                    if #available(iOS 26.0, *), model.uiIsJITNeeded {
+                        Text("lc.appSettings.launchWithJitDesc".loc + "\n" + "lc.appSettings.jit26.scriptDesc".loc)
+
+                    } else {
+                        Text("lc.appSettings.launchWithJitDesc".loc)
                     }
-                }
+                
             }
 
             Section {
