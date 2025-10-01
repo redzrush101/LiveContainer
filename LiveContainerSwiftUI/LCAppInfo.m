@@ -8,7 +8,12 @@
 
 uint32_t dyld_get_sdk_version(const struct mach_header* mh);
 
+@interface LCAppInfo()
+@property UIImage* cachedIcon;
+@end
+
 @implementation LCAppInfo
+
 - (instancetype)initWithBundlePath:(NSString*)bundlePath {
     self = [super init];
     self.isShared = false;
@@ -175,26 +180,58 @@ uint32_t dyld_get_sdk_version(const struct mach_header* mh);
 }
 
 - (UIImage*)icon {
+    if(_cachedIcon) {
+        return _cachedIcon;
+    }
+    
     NSBundle* bundle = [[NSBundle alloc] initWithPath: _bundlePath];
     NSString* iconPath = nil;
     UIImage* icon = nil;
 
-    if((iconPath = [_infoPlist valueForKeyPath:@"CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconFiles"][0]) &&
-       (icon = [UIImage imageNamed:iconPath inBundle:bundle compatibleWithTraitCollection:nil])) {
-        return icon;
+    @try {
+        if((iconPath = [_infoPlist valueForKeyPath:@"CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconFiles"][0]) &&
+           (icon = [UIImage imageNamed:iconPath inBundle:bundle compatibleWithTraitCollection:nil])) {
+            return icon;
+        }
+    }
+    @catch (NSException *exception) {
+        NSLog(@"Failed to get icon from info.plist: %@", exception.reason);
+    }
+    @try {
+        if((iconPath = [_infoPlist valueForKeyPath:@"CFBundleIconFiles"][0]) &&
+           (icon = [UIImage imageNamed:iconPath inBundle:bundle compatibleWithTraitCollection:nil])) {
+            return icon;
+        }
+    }
+    @catch (NSException *exception) {
+        NSLog(@"Failed to get icon from info.plist: %@", exception.reason);
+    }
+    @try {
+        if((iconPath = [_infoPlist valueForKeyPath:@"CFBundleIcons~ipad"][@"CFBundlePrimaryIcon"][@"CFBundleIconName"]) &&
+           (icon = [UIImage imageNamed:iconPath inBundle:bundle compatibleWithTraitCollection:nil])) {
+            return icon;
+        }
+    }
+    @catch (NSException *exception) {
+        NSLog(@"Failed to get icon from info.plist: %@", exception.reason);
     }
     
-    if((iconPath = [_infoPlist valueForKeyPath:@"CFBundleIconFiles"][0]) &&
-       (icon = [UIImage imageNamed:iconPath inBundle:bundle compatibleWithTraitCollection:nil])) {
-        return icon;
+    @try {
+        if((iconPath = [_infoPlist valueForKeyPath:@"CFBundleIcons"][@"CFBundlePrimaryIcon"]) && [iconPath isKindOfClass:NSString.class] &&
+           (icon = [UIImage imageNamed:iconPath inBundle:bundle compatibleWithTraitCollection:nil])) {
+            return icon;
+        }
     }
-    
-    if((iconPath = [_infoPlist valueForKeyPath:@"CFBundleIcons~ipad"][@"CFBundlePrimaryIcon"][@"CFBundleIconName"]) &&
-       (icon = [UIImage imageNamed:iconPath inBundle:bundle compatibleWithTraitCollection:nil])) {
-        return icon;
+    @catch (NSException *exception) {
+        NSLog(@"Failed to get icon from info.plist: %@", exception.reason);
     }
 
-    return [UIImage imageNamed:@"DefaultIcon"];
+    if(!icon) {
+        icon = [UIImage imageNamed:@"DefaultIcon"];
+    }
+        
+    _cachedIcon = icon;
+    return icon;
 
 }
 
