@@ -289,6 +289,7 @@ uint32_t dyld_get_sdk_version(const struct mach_header* mh);
         [fm moveItemAtPath:backupPath toPath:execPath error:&err];
     }
     
+    bool is32bit = false;
     if (needPatch) {
         __block bool has64bitSlice = NO;
         NSString *error = LCParseMachO(execPath.UTF8String, false, ^(const char *path, struct mach_header_64 *header, int fd, void* filePtr) {
@@ -301,7 +302,7 @@ uint32_t dyld_get_sdk_version(const struct mach_header* mh);
                 }
             }
         });
-        self.is32bit = !has64bitSlice;
+        is32bit = !has64bitSlice;
         LCPatchAppBundleFixupARM64eSlice([NSURL fileURLWithPath:appPath]);
         
         if (error) {
@@ -314,8 +315,16 @@ uint32_t dyld_get_sdk_version(const struct mach_header* mh);
         
         [self save];
     }
+#if !is32BitSupported
+    if(is32bit) {
+        completetionHandler(NO, @"32-bit app is NOT supported!");
+        return;
+    }
+#else
+    self.is32Bit = is32bit;
+#endif
 
-    if (!LCUtils.certificatePassword || self.is32bit || self.dontSign) {
+    if (!LCUtils.certificatePassword || is32bit || self.dontSign) {
         [NSUserDefaults.standardUserDefaults removeObjectForKey:@"SigningInProgress"];
         completetionHandler(YES, nil);
         return;
@@ -589,7 +598,7 @@ uint32_t dyld_get_sdk_version(const struct mach_header* mh);
     _info[@"LCContainers"] = containerInfo;
     [self save];
 }
-
+#if is32BitSupported
 - (bool)is32bit {
     if(_info[@"is32bit"] != nil) {
         return [_info[@"is32bit"] boolValue];
@@ -602,7 +611,7 @@ uint32_t dyld_get_sdk_version(const struct mach_header* mh);
     [self save];
     
 }
-
+#endif
 - (bool)dontSign {
     if(_info[@"dontSign"] != nil) {
         return [_info[@"dontSign"] boolValue];

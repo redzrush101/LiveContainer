@@ -30,9 +30,9 @@ class LCAppModel: ObservableObject, Hashable {
     @Published var uiDefaultDataFolder : String?
     @Published var uiContainers : [LCContainer]
     @Published var uiSelectedContainer : LCContainer?
-    
+#if is32BitSupported
     @Published var uiIs32bit : Bool
-    
+#endif
     @Published var uiTweakFolder : String? {
         didSet {
             appInfo.tweakFolder = uiTweakFolder
@@ -137,9 +137,9 @@ class LCAppModel: ObservableObject, Hashable {
         self.uiDontSign = appInfo.dontSign
         self.jitLaunchScriptJs = appInfo.jitLaunchScriptJs
         self.uiSpoofSDKVersion = appInfo.spoofSDKVersion
-        
+#if is32BitSupported
         self.uiIs32bit = appInfo.is32bit
-        
+#endif
         for container in uiContainers {
             if container.folderName == uiDefaultDataFolder {
                 self.uiSelectedContainer = container;
@@ -246,8 +246,12 @@ class LCAppModel: ObservableObject, Hashable {
         
 
         UserDefaults.standard.set(uiSelectedContainer?.folderName, forKey: "selectedContainer")
-
-        if appInfo.isJITNeeded || appInfo.is32bit {
+        var is32bit = false
+        
+        #if is32BitSupported
+        is32bit = appInfo.is32bit
+        #endif
+        if appInfo.isJITNeeded || is32bit {
             if multitask, #available(iOS 17.4, *) {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                     LCUtils.launchMultitaskGuestApp(withPIDCallback: appInfo.displayName(), pidCompletionHandler: { pidNumber, error in
