@@ -413,7 +413,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     func openWebView(urlString: String) async {
         guard var urlToOpen = URLComponents(string: urlString), urlToOpen.url != nil else {
-            errorInfo = "lc.appList.urlInvalidError".loc
+            errorInfo = LCAppError.invalidURL.localizedDescription
             errorShow = true
             return
         }
@@ -493,7 +493,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     nonisolated func decompress(_ path: String, _ destination: String ,_ progress: Progress) async throws {
         let result = extract(path, destination, progress)
         if result != 0 {
-            throw NSError(domain: "LiveContainer", code: Int(result), userInfo: [NSLocalizedDescriptionKey: "lc.appList.ipaExtractionFailed".loc])
+            throw LCAppError.extractionFailed(underlyingError: nil)
         }
     }
     
@@ -526,13 +526,13 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             }
         }
         guard let appBundleName = appBundleName else {
-            throw "lc.appList.bundleNotFondError".loc
+            throw LCAppError.bundleNotFound
         }
 
         let appFolderPath = payloadPath.appendingPathComponent(appBundleName)
         
         guard let newAppInfo = LCAppInfo(bundlePath: appFolderPath.path) else {
-            throw "lc.appList.infoPlistCannotReadError".loc
+            throw LCAppError.infoPlistUnreadable
         }
 
         var appRelativePath = "\(newAppInfo.bundleIdentifier()!).app"
@@ -620,10 +620,10 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         
         // we leave it unsigned even if signing failed
         if let signError {
-            if signSuccess {
-                errorInfo = "\("lc.appList.signSuccessWithError".loc)\n\n\(signError)"
-            } else {
-                errorInfo = signError.loc
+            let appError = LCAppError.signingError(from: signError)
+            errorInfo = appError.localizedDescription
+            if let recovery = appError.recoverySuggestion {
+                errorInfo += "\n\n" + recovery
             }
             errorShow = true
         }
@@ -698,7 +698,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         
         guard let installUrl = URL(string: urlStr) else {
-            errorInfo = "lc.appList.urlInvalidError".loc
+            errorInfo = LCAppError.invalidURL.localizedDescription
             errorShow = true
             return
         }
@@ -711,7 +711,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         if installUrl.isFileURL {
             // install from local, we directly call local install method
             if !installUrl.lastPathComponent.hasSuffix(".ipa") && !installUrl.lastPathComponent.hasSuffix(".tipa") {
-                errorInfo = "lc.appList.urlFileIsNotIpaError".loc
+                errorInfo = LCAppError.notAnIPA.localizedDescription
                 errorShow = true
                 return
             }
