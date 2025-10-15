@@ -142,7 +142,7 @@ class RefreshHandler: NSObject, RefreshServer {
             let uuid = await ext.beginRequest(withInputItems: [extensionItem])
             sideStorePid = ext.pid(forRequestIdentifier: uuid)
             
-            try await withUnsafeThrowingContinuation { [weak self] continuation in
+            try await withUnsafeThrowingContinuation { [weak self] (continuation: UnsafeContinuation<Void, any Error>) in
                 guard let self else {
                     continuation.resume(throwing: NSError(domain: "SideStore", code: 1, userInfo: [NSLocalizedDescriptionKey: "Built-in SideStore deallocated before launch completed"]))
                     return
