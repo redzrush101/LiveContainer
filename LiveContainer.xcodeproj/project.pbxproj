@@ -29,6 +29,8 @@
 	E1A0B1022E4C6A9A00D12345 /* LCBundleTransaction.m in Sources */ = {isa = PBXBuildFile; fileRef = E1A0B1012E4C6A9A00D12345 /* LCBundleTransaction.m */; };
 	E1A0B1032E4C6A9A00D12345 /* LCBundleTransaction.h in Headers */ = {isa = PBXBuildFile; fileRef = E1A0B1002E4C6A9A00D12345 /* LCBundleTransaction.h */; settings = {ATTRIBUTES = (Public, ); }; };
 	E1A0B1072E4C6B4C00D12345 /* LCConstants.h in Headers */ = {isa = PBXBuildFile; fileRef = E1A0B1042E4C6B4C00D12345 /* LCConstants.h */; settings = {ATTRIBUTES = (Public, ); }; };
+	E1F6B2122E5C1A1B00A1A1A3 /* LCLogger.h in Headers */ = {isa = PBXBuildFile; fileRef = E1F6B2102E5C1A1B00A1A1A1 /* LCLogger.h */; settings = {ATTRIBUTES = (Public, ); }; };
+	E1F6B2132E5C1A1B00A1A1A4 /* LCLogger.m in Sources */ = {isa = PBXBuildFile; fileRef = E1F6B2112E5C1A1B00A1A1A2 /* LCLogger.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -132,6 +134,8 @@
 	E1A0B1002E4C6A9A00D12345 /* LCBundleTransaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCBundleTransaction.h; sourceTree = "<group>"; };
 	E1A0B1012E4C6A9A00D12345 /* LCBundleTransaction.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCBundleTransaction.m; sourceTree = "<group>"; };
 	E1A0B1042E4C6B4C00D12345 /* LCConstants.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCConstants.h; sourceTree = "<group>"; };
+	E1F6B2102E5C1A1B00A1A1A1 /* LCLogger.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCLogger.h; sourceTree = "<group>"; };
+	E1F6B2112E5C1A1B00A1A1A2 /* LCLogger.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCLogger.m; sourceTree = "<group>"; };
 		173545A82E2C7913001B3B4C /* SideStore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SideStore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		17413FB52D9C0BAE00F3F928 /* LiveContainerSwiftUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LiveContainerSwiftUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1741403A2D9C0D0000F3F928 /* TweakLoader.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = TweakLoader.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -336,25 +340,27 @@
 /* Begin PBXGroup section */
 		172CA85F2D9D721700CF6989 /* LiveContainer */ = {
 			isa = PBXGroup;
-			children = (
-		E1A0B1042E4C6B4C00D12345 /* LCConstants.h */,
-				E16D95762E1CD49E0068EB63 /* LCMachOUtils.h */,
-				E1292C032DCA3C160065E12D /* main.c */,
-				E1292C1A2DCA48F00065E12D /* Tweaks */,
-				172CA8542D9D721700CF6989 /* dyld_bypass_validation.m */,
-				172CA8552D9D721700CF6989 /* FoundationPrivate.h */,
-				E16D94DE2E1CC8200068EB63 /* LCMachOUtils.m */,
-				E1A0B1002E4C6A9A00D12345 /* LCBundleTransaction.h */,
-				E1A0B1012E4C6A9A00D12345 /* LCBundleTransaction.m */,
-				172CA8562D9D721700CF6989 /* LCSharedUtils.h */,
-				172CA8572D9D721700CF6989 /* LCSharedUtils.m */,
-				172CA8582D9D721700CF6989 /* Localization.h */,
-				172CA8592D9D721700CF6989 /* Localization.m */,
-				172CA85A2D9D721700CF6989 /* LCBootstrap.m */,
-				172CA85C2D9D721700CF6989 /* UIKitPrivate.h */,
-				172CA85D2D9D721700CF6989 /* utils.h */,
-				172CA85E2D9D721700CF6989 /* utils.m */,
-			);
+		children = (
+			E1A0B1042E4C6B4C00D12345 /* LCConstants.h */,
+			E16D95762E1CD49E0068EB63 /* LCMachOUtils.h */,
+			E1292C032DCA3C160065E12D /* main.c */,
+			E1292C1A2DCA48F00065E12D /* Tweaks */,
+			172CA8542D9D721700CF6989 /* dyld_bypass_validation.m */,
+			172CA8552D9D721700CF6989 /* FoundationPrivate.h */,
+			E16D94DE2E1CC8200068EB63 /* LCMachOUtils.m */,
+			E1A0B1002E4C6A9A00D12345 /* LCBundleTransaction.h */,
+			E1A0B1012E4C6A9A00D12345 /* LCBundleTransaction.m */,
+			172CA8562D9D721700CF6989 /* LCSharedUtils.h */,
+			172CA8572D9D721700CF6989 /* LCSharedUtils.m */,
+			172CA8582D9D721700CF6989 /* Localization.h */,
+			172CA8592D9D721700CF6989 /* Localization.m */,
+			172CA85A2D9D721700CF6989 /* LCBootstrap.m */,
+			E1F6B2102E5C1A1B00A1A1A1 /* LCLogger.h */,
+			E1F6B2112E5C1A1B00A1A1A2 /* LCLogger.m */,
+			172CA85C2D9D721700CF6989 /* UIKitPrivate.h */,
+			172CA85D2D9D721700CF6989 /* utils.h */,
+			172CA85E2D9D721700CF6989 /* utils.m */,
+		);
 			path = LiveContainer;
 			sourceTree = "<group>";
 		};
@@ -447,6 +453,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			E1A0B1032E4C6A9A00D12345 /* LCBundleTransaction.h in Headers */,
+			E1F6B2122E5C1A1B00A1A1A3 /* LCLogger.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -856,6 +863,7 @@
 				E1292C082DCA434F0065E12D /* LCSharedUtils.m in Sources */,
 			E1A0B1022E4C6A9A00D12345 /* LCBundleTransaction.m in Sources */,
 				E1292C0B2DCA43560065E12D /* LCBootstrap.m in Sources */,
+			E1F6B2132E5C1A1B00A1A1A4 /* LCLogger.m in Sources */,
 				E1292C0A2DCA43540065E12D /* utils.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
