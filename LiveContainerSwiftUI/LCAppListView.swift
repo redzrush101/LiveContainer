@@ -493,7 +493,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     nonisolated func decompress(_ path: String, _ destination: String ,_ progress: Progress) async throws {
         let result = extract(path, destination, progress)
         if result != 0 {
-            throw NSError(domain: "LiveContainer", code: result, userInfo: [NSLocalizedDescriptionKey: "lc.appList.ipaExtractionFailed".loc])
+            throw NSError(domain: "LiveContainer", code: Int(result), userInfo: [NSLocalizedDescriptionKey: "lc.appList.ipaExtractionFailed".loc])
         }
     }
     
