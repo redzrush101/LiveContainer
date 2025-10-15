@@ -45,6 +45,41 @@ typedef struct {
     BOOL didSetCFFIXEDHome;
 } LCBootstrapState;
 
+static void LCBootstrapRestoreState(LCBootstrapState *state, BOOL processPathUpdated) {
+    if (!state) {
+        return;
+    }
+    if (processPathUpdated && state->processPathSlot) {
+        *state->processPathSlot = state->previousProcessPath;
+    }
+    if (state->didSetHome) {
+        if (state->previousHome) {
+            setenv("HOME", state->previousHome.UTF8String, 1);
+        } else {
+            unsetenv("HOME");
+        }
+    }
+    if (state->didSetTmp) {
+        if (state->previousTmp) {
+            setenv("TMPDIR", state->previousTmp.UTF8String, 1);
+        } else {
+            unsetenv("TMPDIR");
+        }
+    }
+    if (state->didSetCFFIXEDHome) {
+        if (state->previousCFFIXEDHome) {
+            setenv("CFFIXED_USER_HOME", state->previousCFFIXEDHome.UTF8String, 1);
+        } else {
+            unsetenv("CFFIXED_USER_HOME");
+        }
+    }
+}
+
+static NSString *LCBootstrapFinish(LCBootstrapState *state, BOOL processPathUpdated, NSString *message) {
+    LCBootstrapRestoreState(state, processPathUpdated);
+    return message;
+}
+
 @implementation NSUserDefaults(LiveContainer)
 + (instancetype)lcUserDefaults {
     return lcUserDefaults;
@@ -300,7 +335,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         }
         if (!checkJITEnabled()) {
             appError = @"JIT was not enabled. If you want to use LiveContainer without JIT, setup JITLess mode in settings.";
-            return appError;
+            return LCBootstrapFinish(&state, processPathUpdated, appError);
         }
     }
 
@@ -332,7 +367,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     
     if(!guestAppInfo) {
-        return @"App bundle not found! Unable to read LCAppInfo.plist.";
+        return LCBootstrapFinish(&state, processPathUpdated, @"App bundle not found! Unable to read LCAppInfo.plist.");
     }
     
     if([guestAppInfo[@"doUseLCBundleId"] boolValue] ) {
@@ -358,7 +393,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     NSBundle *appBundle = [[NSBundle alloc] initWithPathForMainBundle:bundlePath];
     
     if(!appBundle) {
-        return @"App not found";
+        return LCBootstrapFinish(&state, processPathUpdated, @"App not found");
     }
     
     // find container in Info.plist
@@ -368,7 +403,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
 
     if(dataUUID == nil) {
-        return @"Container not found!";
+        return LCBootstrapFinish(&state, processPathUpdated, @"Container not found!");
     }
     
     if(isSharedBundle) {
@@ -414,20 +449,20 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     // Locate dyld image name address
     state.processPathSlot = _CFGetProcessPath();
     if (!state.processPathSlot) {
-        return @"Failed to locate process path entry.";
+        return LCBootstrapFinish(&state, processPathUpdated, @"Failed to locate process path entry.");
     }
     state.previousProcessPath = *state.processPathSlot;
 
     // Overwrite @executable_path
     const char *appExecPath = appBundle.executablePath.fileSystemRepresentation;
     if (!appExecPath) {
-        return @"App's executable path not found.";
+        return LCBootstrapFinish(&state, processPathUpdated, @"App's executable path not found.");
     }
     *state.processPathSlot = appExecPath;
     processPathUpdated = YES;
     if (!overwriteExecPath(appExecPath, &localError)) {
         appError = localError.localizedDescription ?: @"Failed to overwrite executable path.";
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
     
     // Overwrite NSUserDefaults
@@ -506,17 +541,17 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
 
     if (setenv("CFFIXED_USER_HOME", newHomePath.UTF8String, 1) != 0) {
         appError = @"Failed to set CFFIXED_USER_HOME.";
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
     state.didSetCFFIXEDHome = YES;
     if (setenv("HOME", newHomePath.UTF8String, 1) != 0) {
         appError = @"Failed to set HOME directory.";
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
     state.didSetHome = YES;
     if (setenv("TMPDIR", newTmpPath.UTF8String, 1) != 0) {
         appError = @"Failed to set TMPDIR.";
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
     state.didSetTmp = YES;
 
@@ -533,19 +568,19 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     // Overwrite NSBundle
     if (!overwriteMainNSBundle(appBundle, &localError)) {
         appError = localError.localizedDescription ?: @"Failed to overwrite NSBundle.mainBundle.";
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
 
     // Overwrite CFBundle
     if (!overwriteMainCFBundle(&localError)) {
         appError = localError.localizedDescription ?: @"Failed to overwrite CFBundleGetMainBundle.";
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
 
     // Overwrite executable info
     if(!appBundle.executablePath) {
         appError = @"App's executable path not found. Please try force re-signing or reinstalling this app.";
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
 
     NSMutableArray<NSString *> *objcArgv = NSProcessInfo.processInfo.arguments.mutableCopy;
@@ -576,20 +611,20 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     if(is32bit) {
         if (!isJitEnabled) {
             appError = @"JIT is required to run 32-bit apps.";
-            goto cleanup;
+            return LCBootstrapFinish(&state, processPathUpdated, appError);
         }
         
         NSString *selected32BitLayer = [lcUserDefaults stringForKey:@"selected32BitLayer"];
         if(!selected32BitLayer || [selected32BitLayer length] == 0) {
             appError = @"No 32-bit translation layer installed";
             NSLog(@"[LCBootstrap] %@", appError);
-            goto cleanup;
+            return LCBootstrapFinish(&state, processPathUpdated, appError);
         }
         NSBundle *selected32bitLayerBundle = [NSBundle bundleWithPath:[docPath stringByAppendingPathComponent:selected32BitLayer]]; //TODO make it user friendly;
         if(!selected32bitLayerBundle) {
             appError = @"The specified LiveExec32.app path is not found";
             NSLog(@"[LCBootstrap] %@", appError);
-            goto cleanup;
+            return LCBootstrapFinish(&state, processPathUpdated, appError);
         }
         // maybe need to save selected32bitLayerBundle to static variable?
         appExecPath = strdup(selected32bitLayerBundle.executablePath.UTF8String);
@@ -612,7 +647,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
             appError = @"dlopen: an unknown error occurred";
         }
         NSLog(@"[LCBootstrap] %@", appError);
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
     
     if([guestAppInfo[@"dontInjectTweakLoader"] boolValue] && ![guestAppInfo[@"dontLoadTweakLoader"] boolValue]) {
@@ -641,7 +676,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         ) {
         appError = error.localizedDescription;
         NSLog(@"[LCBootstrap] loading bundle failed: %@", error);
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
     NSLog(@"[LCBootstrap] loaded bundle");
 
@@ -650,7 +685,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     if (!appMain) {
         appError = @"Could not find the main entry point";
         NSLog(@"[LCBootstrap] %@", appError);
-        goto cleanup;
+        return LCBootstrapFinish(&state, processPathUpdated, appError);
     }
 
     // Go!
@@ -669,34 +704,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
 #endif
     appError = [NSString stringWithFormat:@"App returned from its main function with code %d.", ret];
-    goto cleanup;
-
-cleanup:
-    if (processPathUpdated && state.processPathSlot) {
-        *state.processPathSlot = state.previousProcessPath;
-    }
-    if (state.didSetHome) {
-        if (state.previousHome) {
-            setenv("HOME", state.previousHome.UTF8String, 1);
-        } else {
-            unsetenv("HOME");
-        }
-    }
-    if (state.didSetTmp) {
-        if (state.previousTmp) {
-            setenv("TMPDIR", state.previousTmp.UTF8String, 1);
-        } else {
-            unsetenv("TMPDIR");
-        }
-    }
-    if (state.didSetCFFIXEDHome) {
-        if (state.previousCFFIXEDHome) {
-            setenv("CFFIXED_USER_HOME", state.previousCFFIXEDHome.UTF8String, 1);
-        } else {
-            unsetenv("CFFIXED_USER_HOME");
-        }
-    }
-    return appError;
+    return LCBootstrapFinish(&state, processPathUpdated, appError);
 }
 
 static void exceptionHandler(NSException *exception) {
