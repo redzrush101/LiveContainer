@@ -82,9 +82,37 @@ int extract(NSString* fileToExtract, NSString* extractionPath, NSProgress* progr
             break;
         
         NSString* currentFile = [NSString stringWithUTF8String:archive_entry_pathname(entry)];
+        
+        // Security: Validate path to prevent directory traversal attacks
+        // Reject absolute paths
+        if ([currentFile hasPrefix:@"/"]) {
+            fprintf(stderr, "Security: Rejecting absolute path in archive: %s\n", currentFile.UTF8String);
+            archive_read_close(a);
+            archive_read_free(a);
+            archive_write_close(ext);
+            archive_write_free(ext);
+            return 1;
+        }
+        
         NSString* fullOutputPath = [extractionPath stringByAppendingPathComponent:currentFile];
-        //printf("extracting %@ to %@\n", currentFile, fullOutputPath);
-        archive_entry_set_pathname(entry, fullOutputPath.fileSystemRepresentation);
+        
+        // Normalize path and verify it stays within extraction directory
+        NSURL* normalizedURL = [[NSURL fileURLWithPath:fullOutputPath] URLByStandardizingPath];
+        NSURL* extractionURL = [[NSURL fileURLWithPath:extractionPath] URLByStandardizingPath];
+        NSString* normalizedPath = normalizedURL.path;
+        NSString* extractionRoot = extractionURL.path;
+        
+        if (![normalizedPath hasPrefix:extractionRoot]) {
+            fprintf(stderr, "Security: Path traversal attempt detected - rejecting: %s\n", currentFile.UTF8String);
+            archive_read_close(a);
+            archive_read_free(a);
+            archive_write_close(ext);
+            archive_write_free(ext);
+            return 1;
+        }
+        
+        //printf("extracting %@ to %@\n", currentFile, normalizedPath);
+        archive_entry_set_pathname(entry, normalizedPath.fileSystemRepresentation);
         
         r = archive_write_header(ext, entry);
         if (r < ARCHIVE_OK)
