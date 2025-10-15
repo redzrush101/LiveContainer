@@ -719,6 +719,10 @@ static void exceptionHandler(NSException *exception) {
 }
 
 int LiveContainerMain(int argc, char *argv[]) {
+    // Reset bootstrap flags to ensure clean state for each launch
+    isSharedBundle = false;
+    isSideStore = false;
+    
     lcMainBundle = [NSBundle mainBundle];
     lcUserDefaults = NSUserDefaults.standardUserDefaults;
     
