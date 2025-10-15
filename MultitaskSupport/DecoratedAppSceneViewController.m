@@ -5,6 +5,7 @@
 #import "UIKitPrivate+MultitaskSupport.h"
 #import "PiPManager.h"
 #import "../LiveContainer/Localization.h"
+#import "../LiveContainer/LCConstants.h"
 #import "utils.h"
 
 @implementation RBSTarget(hook)
@@ -45,7 +46,7 @@ void UIKitFixesInit(void) {
 - (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID rootVC:(UIViewController*)rootVC {
     self = [super initWithNibName:nil bundle:nil];
     _scaleRatio = 1.0;
-    _isMaximized = [NSUserDefaults.lcUserDefaults boolForKey:@"LCLaunchMultitaskMaximized"];
+    _isMaximized = [NSUserDefaults.lcUserDefaults boolForKey:LCUserDefaultLaunchMultitaskMaximizedKey];
     [rootVC addChildViewController:self];
     [rootVC.view addSubview:self.view];
     _appSceneVC = [[AppSceneViewController alloc] initWithBundleId:bundleId dataUUID:dataUUID delegate:self];
@@ -104,7 +105,7 @@ void UIKitFixesInit(void) {
     closeButton.tintColor = [UIColor systemRedColor];
     
     NSArray *barButtonItems = @[closeButton, self.maximizeButton, minimizeButton];
-    if([NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"]) {
+    if([NSUserDefaults.lcSharedDefaults boolForKey:LCUserDefaultMultitaskBottomWindowBarKey]) {
         // resize handle overlaps the close button, so put the buttons on the left
         self.navigationItem.leftBarButtonItems = barButtonItems;
     } else {
@@ -157,7 +158,7 @@ void UIKitFixesInit(void) {
     CGRect contentFrame = CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height - navBarHeight);
     UIView *fixedPositionContentView = [[UIView alloc] initWithFrame:contentFrame];
     self.contentView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    if([NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"]) {
+    if([NSUserDefaults.lcSharedDefaults boolForKey:LCUserDefaultMultitaskBottomWindowBarKey]) {
         [self.view insertArrangedSubview:fixedPositionContentView atIndex:0];
     } else {
         [self.view addArrangedSubview:fixedPositionContentView];
@@ -199,7 +200,7 @@ void UIKitFixesInit(void) {
     
     NSUserDefaults *defaults = NSUserDefaults.lcSharedDefaults;
 
-    [defaults addObserver:self forKeyPath:@"LCMultitaskBottomWindowBar" options:NSKeyValueObservingOptionNew context:NULL];
+    [defaults addObserver:self forKeyPath:LCUserDefaultMultitaskBottomWindowBarKey options:NSKeyValueObservingOptionNew context:NULL];
     [self updateOriginalFrame];
 }
 
@@ -499,7 +500,7 @@ void UIKitFixesInit(void) {
         };
     }
     
-    BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
+    BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:LCUserDefaultMultitaskBottomWindowBarKey];
     BOOL hideWindowBar = MultitaskDockManager.shared.isCollapsed && _isMaximized;
     CGFloat navBarHeight = hideWindowBar ? 0 : 44;
     self.navigationBar.hidden = hideWindowBar;
@@ -522,7 +523,7 @@ void UIKitFixesInit(void) {
 }
 
 - (UIEdgeInsets)updateMaximizedSafeAreaWithSettings:(UIMutableApplicationSceneSettings *)settings {
-    BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:@"LCMultitaskBottomWindowBar"];
+    BOOL bottomWindowBar = [NSUserDefaults.lcSharedDefaults boolForKey:LCUserDefaultMultitaskBottomWindowBarKey];
     UIEdgeInsets safeAreaInsets = self.view.window.safeAreaInsets;
     if(self.navigationBar.hidden) {
         settings.peripheryInsets = safeAreaInsets;

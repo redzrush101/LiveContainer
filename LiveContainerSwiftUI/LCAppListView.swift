@@ -5,30 +5,8 @@
 //  Created by s s on 2024/8/21.
 //
 
-import Combine
 import SwiftUI
 import UniformTypeIdentifiers
-
-class SearchContext: ObservableObject {
-    @Published var query: String = ""
-    @Published var debouncedQuery: String = ""
-    @Published var isTyping: Bool = false
-
-    private var cancellables = Set<AnyCancellable>()
-
-    init() {
-        $query
-            .debounce(for: .seconds(0.2), scheduler: DispatchQueue.main)
-            .sink { [weak self] value in
-                self?.isTyping = true
-                self?.debouncedQuery = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    self?.isTyping = false
-                }
-            }
-            .store(in: &cancellables)
-    }
-}
 
 struct AppReplaceOption : Hashable {
     var isReplace: Bool
@@ -79,10 +57,10 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @EnvironmentObject private var sharedModel : SharedModel
     @EnvironmentObject private var sharedAppSortManager : LCAppSortManager
     
-    @AppStorage("LCMultitaskMode", store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
-    @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
+    @StateObject private var viewModel = AppListViewModel()
     
-    @ObservedObject var searchContext = SearchContext()
+    @AppStorage(LCUserDefaultMultitaskModeKey, store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
+    @AppStorage(LCUserDefaultLaunchInMultitaskModeKey) var launchInMultitaskMode = false
     var sortedApps: [LCAppModel] {
         return sharedAppSortManager.sortedApps
     }
@@ -91,28 +69,14 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         return sharedAppSortManager.sortedHiddenApps
     }
     
+    private var searchContext: SearchContext { viewModel.searchContext }
+    
     var filteredApps: [LCAppModel] {
-        let apps = sortedApps
-        if searchContext.debouncedQuery.isEmpty {
-            return apps
-        } else {
-            return apps.filter { app in
-                app.appInfo.displayName().localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
-                app.appInfo.bundleIdentifier()!.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
-            }
-        }
+        viewModel.filteredApps(from: sortedApps)
     }
     
     var filteredHiddenApps: [LCAppModel] {
-        let apps = sortedHiddenApps
-        if searchContext.debouncedQuery.isEmpty || !sharedModel.isHiddenAppUnlocked {
-            return apps
-        } else {
-            return apps.filter { app in
-                app.appInfo.displayName().localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
-                app.appInfo.bundleIdentifier()!.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
-            }
-        }
+        viewModel.filteredHiddenApps(from: sortedHiddenApps, isHiddenUnlocked: sharedModel.isHiddenAppUnlocked)
     }
     
     init(appDataFolderNames: Binding<[String]>, tweakFolderNames: Binding<[String]>) {
@@ -132,72 +96,48 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 })
                 .hidden()
                 
-                LazyVStack {
-                    ForEach(filteredApps, id: \.self) { app in
-                        LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
-                    }
-                    .transition(.scale)
+                AppListSection(apps: filteredApps, animate: !searchContext.isTyping) { app in
+                    LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
                 }
-                .padding()
-                .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredApps)
 
                 VStack {
-                    if LCUtils.appGroupUserDefault.bool(forKey: "LCStrictHiding") {
+                    let strictHidingEnabled = LCUtils.appGroupUserDefault.bool(forKey: LCUserDefaultStrictHidingKey)
+                    if strictHidingEnabled {
                         if sharedModel.isHiddenAppUnlocked {
-                            LazyVStack {
-                                HStack {
-                                    Text("lc.appList.hiddenApps".loc)
-                                        .font(.system(.title2).bold())
-                                    Spacer()
-                                }
-                                
-                                ForEach(filteredHiddenApps, id: \.self) { app in
-                                    LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
-                                }
-                                .transition(.scale)
-                                
+                            AppListSection(title: "lc.appList.hiddenApps".loc, apps: filteredHiddenApps, animate: !searchContext.isTyping) { app in
+                                LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
                             }
-                            .padding()
                             .transition(.opacity)
-                            .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredHiddenApps)
-                            
-                            if sharedModel.hiddenApps.count == 0 {
+
+                            if sharedModel.hiddenApps.isEmpty {
                                 Text("lc.appList.hideAppTip".loc)
                                     .foregroundStyle(.gray)
                             }
                         }
                     } else if sharedModel.hiddenApps.count > 0 {
-                        LazyVStack {
-                            HStack {
-                                Text("lc.appList.hiddenApps".loc)
-                                    .font(.system(.title2).bold())
-                                Spacer()
-                            }
-                            ForEach(filteredHiddenApps, id: \.self) { app in
+                        AppListSection(title: "lc.appList.hiddenApps".loc, apps: filteredHiddenApps, animate: !searchContext.isTyping) { app in
+                            Group {
                                 if sharedModel.isHiddenAppUnlocked {
                                     LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
                                 } else {
                                     LCAppSkeletonBanner()
                                 }
                             }
-                            .animation(.easeInOut, value: sharedModel.isHiddenAppUnlocked)
-                            .onTapGesture {
-                                Task { await authenticateUser() }
-                            }
                         }
-                        .padding()
-                        .animation(searchContext.isTyping ? nil : .easeInOut, value: filteredHiddenApps)
+                        .animation(.easeInOut, value: sharedModel.isHiddenAppUnlocked)
+                        .onTapGesture {
+                            Task { await authenticateUser() }
+                        }
                     }
 
                     let appCount = sharedModel.isHiddenAppUnlocked ? filteredApps.count + filteredHiddenApps.count : filteredApps.count
-                    Text(appCount > 0 || searchContext.debouncedQuery != "" ? "lc.appList.appCounter %lld".localizeWithFormat(appCount) : (sharedModel.multiLCStatus == 2 ? "lc.appList.convertToSharedToShowInLC2".loc : "lc.appList.installTip".loc))
-                        .padding(.horizontal)
-                        .foregroundStyle(.gray)
-                        .animation(searchContext.isTyping ? nil : .easeInOut, value: appCount)
-                        .onTapGesture(count: 3) {
-                            Task { await authenticateUser() }
-                        }
-                }.animation(searchContext.isTyping ? nil : .easeInOut, value: LCUtils.appGroupUserDefault.bool(forKey: "LCStrictHiding"))
+                    let counterText = appCount > 0 || !searchContext.debouncedQuery.isEmpty ? "lc.appList.appCounter %lld".localizeWithFormat(appCount) : (sharedModel.multiLCStatus == 2 ? "lc.appList.convertToSharedToShowInLC2".loc : "lc.appList.installTip".loc)
+                    AppListFooterView(message: counterText) {
+                        Task { await authenticateUser() }
+                    }
+                    .animation(searchContext.isTyping ? nil : .easeInOut, value: appCount)
+                }
+                .animation(searchContext.isTyping ? nil : .easeInOut, value: LCUtils.appGroupUserDefault.bool(forKey: LCUserDefaultStrictHidingKey))
 
                 if sharedModel.multiLCStatus == 2 {
                     Text("lc.appList.manageInPrimaryTip".loc).foregroundStyle(.gray).padding()
@@ -469,7 +409,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         if urlToOpen.scheme != "https" && urlToOpen.scheme != "http" {
             var appToLaunch : LCAppModel? = nil
             var appListsToConsider = [sharedModel.apps]
-            if sharedModel.isHiddenAppUnlocked || !LCUtils.appGroupUserDefault.bool(forKey: "LCStrictHiding") {
+            if sharedModel.isHiddenAppUnlocked || !LCUtils.appGroupUserDefault.bool(forKey: LCUserDefaultStrictHidingKey) {
                 appListsToConsider.append(sharedModel.hiddenApps)
             }
             appLoop:
@@ -505,7 +445,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 }
             }
             
-            UserDefaults.standard.setValue(appToLaunch.appInfo.relativeBundlePath!, forKey: "selected")
+            UserDefaults.standard.setValue(appToLaunch.appInfo.relativeBundlePath!, forKey: LCUserDefaultSelectedAppKey)
             UserDefaults.standard.setValue(urlToOpen.url!.absoluteString, forKey: "launchAppUrlScheme")
             LCUtils.launchToGuestApp()
             
@@ -864,7 +804,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 break
             }
         }
-        if appFound == nil && !LCUtils.appGroupUserDefault.bool(forKey: "LCStrictHiding") {
+        if appFound == nil && !LCUtils.appGroupUserDefault.bool(forKey: LCUserDefaultStrictHidingKey) {
             for app in sharedModel.hiddenApps {
                 if app.appInfo.relativeBundlePath == bundleId {
                     appFound = app
@@ -936,7 +876,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             }
         }
         guard let result = await jitAlert.open(), result else {
-            UserDefaults.standard.removeObject(forKey: "selected")
+            UserDefaults.standard.removeObject(forKey: LCUserDefaultSelectedAppKey)
             enableJITTask.cancel()
             return
         }

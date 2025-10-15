@@ -2,6 +2,7 @@
 #import "FoundationPrivate.h"
 #import "UIKitPrivate.h"
 #import "utils.h"
+#import "LCConstants.h"
 @import MachO;
 
 extern NSUserDefaults *lcUserDefaults;
@@ -185,8 +186,8 @@ extern NSBundle *lcMainBundle;
         }
         
         // Attempt to restart LiveContainer with the selected guest app
-        [lcUserDefaults setObject:launchBundleId forKey:@"selected"];
-        [lcUserDefaults setObject:containerFolderName forKey:@"selectedContainer"];
+        [lcUserDefaults setObject:launchBundleId forKey:LCUserDefaultSelectedAppKey];
+        [lcUserDefaults setObject:containerFolderName forKey:LCUserDefaultSelectedContainerKey];
         return [self launchToGuestApp];
     }
     

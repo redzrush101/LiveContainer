@@ -1,0 +1,14 @@
+#import <Foundation/Foundation.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
+FOUNDATION_EXTERN NSString *const LCUserDefaultSelectedAppKey;
+FOUNDATION_EXTERN NSString *const LCUserDefaultSelectedContainerKey;
+FOUNDATION_EXTERN NSString *const LCUserDefaultStrictHidingKey;
+FOUNDATION_EXTERN NSString *const LCUserDefaultMultitaskModeKey;
+FOUNDATION_EXTERN NSString *const LCUserDefaultMultitaskBottomWindowBarKey;
+FOUNDATION_EXTERN NSString *const LCUserDefaultLaunchMultitaskMaximizedKey;
+FOUNDATION_EXTERN NSString *const LCUserDefaultLaunchInMultitaskModeKey;
+FOUNDATION_EXTERN NSString *const LCMultitaskDisplayNameUserInfoKey;
+
+NS_ASSUME_NONNULL_END

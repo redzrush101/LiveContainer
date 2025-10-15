@@ -10,6 +10,7 @@
 #import <mach-o/dyld.h>
 #import "../LiveContainer/utils.h"
 #import "../LiveContainer/Tweaks/Tweaks.h"
+#import "../LiveContainer/LCConstants.h"
 #import "../SideStore/XPCServer.h"
 
 @interface LiveProcessHandler : NSObject<NSExtensionRequestHandling>
@@ -44,11 +45,11 @@ int LiveProcessMain(int argc, char *argv[]) {
     // Pass selected app info to user defaults
     NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
     [lcUserDefaults setObject:appInfo[@"hostUrlScheme"] forKey:@"hostUrlScheme"];
-    [lcUserDefaults setObject:appInfo[@"selected"] forKey:@"selected"];
-    [lcUserDefaults setObject:appInfo[@"selectedContainer"] forKey:@"selectedContainer"];
+    [lcUserDefaults setObject:appInfo[LCUserDefaultSelectedAppKey] forKey:LCUserDefaultSelectedAppKey];
+    [lcUserDefaults setObject:appInfo[LCUserDefaultSelectedContainerKey] forKey:LCUserDefaultSelectedContainerKey];
     
     
-    if ([appInfo[@"selected"] isEqualToString:@"builtinSideStore"]) {
+    if ([appInfo[LCUserDefaultSelectedAppKey] isEqualToString:@"builtinSideStore"]) {
         NSData* bookmark = appInfo[@"bookmark"];
         if(bookmark) {
             bool isStale = false;

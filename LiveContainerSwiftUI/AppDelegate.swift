@@ -11,8 +11,8 @@ import Intents
         NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { _ in
             // Fix launching app if user opens JIT waiting dialog and kills the app. Won't trigger normally.
             if DataManager.shared.model.isJITModalOpen && !UserDefaults.standard.bool(forKey: "LCKeepSelectedWhenQuit"){
-                UserDefaults.standard.removeObject(forKey: "selected")
-                UserDefaults.standard.removeObject(forKey: "selectedContainer")
+                UserDefaults.standard.removeObject(forKey: LCUserDefaultSelectedAppKey)
+                UserDefaults.standard.removeObject(forKey: LCUserDefaultSelectedContainerKey)
             }
         }
         

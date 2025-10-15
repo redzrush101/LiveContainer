@@ -11,6 +11,7 @@
 #import "PiPManager.h"
 #import "Localization.h"
 #import "LCSharedUtils.h"
+#import "../LiveContainer/LCConstants.h"
 #import "utils.h"
 
 @interface AppSceneViewController()
@@ -53,8 +54,8 @@
     NSExtensionItem *item = [NSExtensionItem new];
     item.userInfo = @{
         @"hostUrlScheme": NSUserDefaults.lcAppUrlScheme,
-        @"selected": _bundleId,
-        @"selectedContainer": _dataUUID,
+        LCUserDefaultSelectedAppKey: _bundleId,
+        LCUserDefaultSelectedContainerKey: _dataUUID,
     };
     
     __weak typeof(self) weakSelf = self;
@@ -82,7 +83,7 @@
     
     
 
-    _isNativeWindow = [NSUserDefaults.lcSharedDefaults integerForKey:@"LCMultitaskMode" ] == 1;
+    _isNativeWindow = [NSUserDefaults.lcSharedDefaults integerForKey:LCUserDefaultMultitaskModeKey ] == 1;
 
     return self;
 }

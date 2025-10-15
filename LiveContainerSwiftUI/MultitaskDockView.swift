@@ -763,7 +763,7 @@ class AppInfoProvider {
     
     // MARK: - Multitask Mode Check
     private func isDockEnabled() -> Bool {
-        let multitaskMode = MultitaskMode(rawValue: LCUtils.appGroupUserDefault.integer(forKey: "LCMultitaskMode")) ?? .virtualWindow
+        let multitaskMode = MultitaskMode(rawValue: LCUtils.appGroupUserDefault.integer(forKey: LCUserDefaultMultitaskModeKey)) ?? .virtualWindow
         return multitaskMode == .virtualWindow
     }
     

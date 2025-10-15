@@ -3,6 +3,7 @@
 #import "LCSharedUtils.h"
 #import "UIKitPrivate.h"
 #import "utils.h"
+#import "LCConstants.h"
 
 #include <mach/mach.h>
 #include <mach-o/dyld.h>
@@ -727,8 +728,8 @@ int LiveContainerMain(int argc, char *argv[]) {
     isLiveProcess = [lcAppUrlScheme isEqualToString:@"liveprocess"];
     setenv("LC_HOME_PATH", getenv("HOME"), 1);
 
-    NSString *selectedApp = [lcUserDefaults stringForKey:@"selected"];
-    NSString *selectedContainer = [lcUserDefaults stringForKey:@"selectedContainer"];
+    NSString *selectedApp = [lcUserDefaults stringForKey:LCUserDefaultSelectedAppKey];
+    NSString *selectedContainer = [lcUserDefaults stringForKey:LCUserDefaultSelectedContainerKey];
     
     NSString* lastLaunchDataUUID;
     if(!isLiveProcess) {
@@ -760,8 +761,8 @@ int LiveContainerMain(int argc, char *argv[]) {
 
     if([selectedApp isEqualToString:@"ui"]) {
         selectedApp = nil;
-        [lcUserDefaults removeObjectForKey:@"selected"];
-        [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+        [lcUserDefaults removeObjectForKey:LCUserDefaultSelectedAppKey];
+        [lcUserDefaults removeObjectForKey:LCUserDefaultSelectedContainerKey];
     }
     
     if(isLiveProcess) {
@@ -785,8 +786,8 @@ int LiveContainerMain(int argc, char *argv[]) {
     // if another instance is running, we just switch to that one, these should be called after uiapplication initialized
     // however if the running lc is liveprocess and current lc is livecontainer1 we just continue
     if(selectedApp && runningLC) {
-        [lcUserDefaults removeObjectForKey:@"selected"];
-        [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+        [lcUserDefaults removeObjectForKey:LCUserDefaultSelectedAppKey];
+        [lcUserDefaults removeObjectForKey:LCUserDefaultSelectedContainerKey];
         
         if([runningLC hasSuffix:@"liveprocess"]) {
             runningLC = runningLC.stringByDeletingPathExtension;
@@ -831,8 +832,8 @@ int LiveContainerMain(int argc, char *argv[]) {
     if (selectedApp || isSideStore) {
         
         NSString *launchUrl = [lcUserDefaults stringForKey:@"launchAppUrlScheme"];
-        [lcUserDefaults removeObjectForKey:@"selected"];
-        [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+        [lcUserDefaults removeObjectForKey:LCUserDefaultSelectedAppKey];
+        [lcUserDefaults removeObjectForKey:LCUserDefaultSelectedContainerKey];
         // wait for app to launch so that it can receive the url
         if(launchUrl) {
             [lcUserDefaults removeObjectForKey:@"launchAppUrlScheme"];

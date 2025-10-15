@@ -132,7 +132,7 @@ struct LCWebView: View {
 
         }
         
-        UserDefaults.standard.setValue(bundleId, forKey: "selected")
+        UserDefaults.standard.setValue(bundleId, forKey: LCUserDefaultSelectedAppKey)
         UserDefaults.standard.setValue(url.absoluteString, forKey: "launchAppUrlScheme")
         LCUtils.launchToGuestApp()
     }
@@ -140,7 +140,7 @@ struct LCWebView: View {
     public func onURLSchemeDetected(url: URL) async {
         var appToLaunch : LCAppModel? = nil
         var appListsToConsider = [sharedModel.apps]
-        if sharedModel.isHiddenAppUnlocked || !LCUtils.appGroupUserDefault.bool(forKey: "LCStrictHiding") {
+        if sharedModel.isHiddenAppUnlocked || !LCUtils.appGroupUserDefault.bool(forKey: LCUserDefaultStrictHidingKey) {
             appListsToConsider.append(sharedModel.hiddenApps)
         }
         appLoop:
@@ -192,7 +192,7 @@ struct LCWebView: View {
         for app in sharedModel.apps {
             bundleIDToAppDict[app.appInfo.bundleIdentifier()!] = app
         }
-        if !LCUtils.appGroupUserDefault.bool(forKey: "LCStrictHiding") || sharedModel.isHiddenAppUnlocked {
+        if !LCUtils.appGroupUserDefault.bool(forKey: LCUserDefaultStrictHidingKey) || sharedModel.isHiddenAppUnlocked {
             for app in sharedModel.hiddenApps {
                 bundleIDToAppDict[app.appInfo.bundleIdentifier()!] = app
             }

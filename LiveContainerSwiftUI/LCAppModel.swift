@@ -239,13 +239,12 @@ class LCAppModel: ObservableObject, Hashable {
         try await signApp(force: false)
         
         if let bundleIdOverride {
-            UserDefaults.standard.set(bundleIdOverride, forKey: "selected")
+            UserDefaults.standard.set(bundleIdOverride, forKey: LCUserDefaultSelectedAppKey)
         } else {
-            UserDefaults.standard.set(self.appInfo.relativeBundlePath, forKey: "selected")
+            UserDefaults.standard.set(self.appInfo.relativeBundlePath, forKey: LCUserDefaultSelectedAppKey)
         }
-        
 
-        UserDefaults.standard.set(uiSelectedContainer?.folderName, forKey: "selectedContainer")
+        UserDefaults.standard.set(uiSelectedContainer?.folderName, forKey: LCUserDefaultSelectedContainerKey)
         var is32bit = false
         
         #if is32BitSupported

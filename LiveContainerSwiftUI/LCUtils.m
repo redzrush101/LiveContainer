@@ -5,6 +5,7 @@
 
 #import "LCUtils.h"
 #import "LCAppInfo.h"
+#import "LCConstants.h"
 #import "../MultitaskSupport/DecoratedAppSceneViewController.h"
 #import "../ZSign/zsigner.h"
 #import "LiveContainerSwiftUI-Swift.h"
@@ -23,15 +24,15 @@ typedef NS_ENUM(NSInteger, LCMultitaskErrorCode) {
 static NSError *LCMultitaskError(NSString *displayName, LCMultitaskErrorCode code, NSString *message) {
     NSMutableDictionary *userInfo = [@{NSLocalizedDescriptionKey : message ?: @"Unknown error"} mutableCopy];
     if (displayName) {
-        userInfo[@"LCDisplayName"] = displayName;
+        userInfo[LCMultitaskDisplayNameUserInfoKey] = displayName;
     }
     return [NSError errorWithDomain:LCMultitaskErrorDomain code:code userInfo:userInfo];
 }
 
 static BOOL LCMultitaskFetchSelection(NSString *displayName, NSString **bundleId, NSString **dataUUID, NSError **error) {
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-    NSString *selectedBundleId = [defaults stringForKey:@"selected"];
-    NSString *selectedContainer = [defaults stringForKey:@"selectedContainer"];
+    NSString *selectedBundleId = [defaults stringForKey:LCUserDefaultSelectedAppKey];
+    NSString *selectedContainer = [defaults stringForKey:LCUserDefaultSelectedContainerKey];
 
     if (!selectedBundleId || !selectedContainer) {
         if (error) {
@@ -58,8 +59,8 @@ static BOOL LCMultitaskFetchSelection(NSString *displayName, NSString **bundleId
 }
 
 static void LCMultitaskClearSelection(NSUserDefaults *defaults) {
-    [defaults removeObjectForKey:@"selected"];
-    [defaults removeObjectForKey:@"selectedContainer"];
+    [defaults removeObjectForKey:LCUserDefaultSelectedAppKey];
+    [defaults removeObjectForKey:LCUserDefaultSelectedContainerKey];
 }
 
 static UIViewController *LCMultitaskRootViewController(void) {
@@ -211,7 +212,7 @@ static UIViewController *LCMultitaskRootViewController(void) {
         }
 
         if (@available(iOS 16.1, *)) {
-            if (UIApplication.sharedApplication.supportsMultipleScenes && [NSUserDefaults.lcSharedDefaults integerForKey:@"LCMultitaskMode"] == 1) {
+            if (UIApplication.sharedApplication.supportsMultipleScenes && [NSUserDefaults.lcSharedDefaults integerForKey:LCUserDefaultMultitaskModeKey] == 1) {
                 [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId];
                 MultitaskDockManager *dock = [MultitaskDockManager shared];
                 [dock addRunningApp:displayName appUUID:dataUUID view:nil];

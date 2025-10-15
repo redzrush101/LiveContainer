@@ -109,7 +109,7 @@ class RefreshHandler: NSObject, RefreshServer {
             // start LiveProcess
             let extensionItem = NSExtensionItem()
             extensionItem.userInfo = [
-                "selected": "builtinSideStore",
+                LCUserDefaultSelectedAppKey: "builtinSideStore",
                 "bookmark": bookmarkData,
                 "endpoint": listener.endpoint
             ]

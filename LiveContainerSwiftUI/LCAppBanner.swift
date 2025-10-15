@@ -34,7 +34,7 @@ struct LCAppBanner : View {
     @State private var errorShow = false
     @State private var errorInfo = ""
     @AppStorage("dynamicColors") var dynamicColors = true
-    @AppStorage("LCLaunchInMultitaskMode") var launchInMultitaskMode = false
+    @AppStorage(LCUserDefaultLaunchInMultitaskModeKey) var launchInMultitaskMode = false
     @State private var mainColor : Color
     
     @EnvironmentObject private var sharedModel : SharedModel

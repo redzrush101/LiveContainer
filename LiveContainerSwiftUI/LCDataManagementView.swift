@@ -343,7 +343,7 @@ struct LCDataManagementView : View {
             }
         }
         if let filzaBundleName {
-            UserDefaults.standard.setValue(filzaBundleName, forKey: "selected")
+            UserDefaults.standard.setValue(filzaBundleName, forKey: LCUserDefaultSelectedAppKey)
             UserDefaults.standard.setValue(launchURLStr, forKey: "launchAppUrlScheme")
             for app in sharedModel.apps {
                 if app.appInfo.bundleIdentifier() == "com.tigisoftware.Filza" {
