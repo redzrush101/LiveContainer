@@ -114,8 +114,7 @@ struct LCDiagnosticsView: View {
                     showShareSheet = true
                     
                     // Log the export action
-                    LCLogger.info(withCategory: LCLogCategoryGeneral,
-                                 message: "Diagnostics exported successfully")
+                    LCLogger.info(category: .general, "Diagnostics exported successfully")
                 }
             }
         }
@@ -123,8 +122,7 @@ struct LCDiagnosticsView: View {
     
     private func clearLogs() {
         LCLogger.clearLogs()
-        LCLogger.info(withCategory: LCLogCategoryGeneral,
-                     message: "Logs cleared by user")
+        LCLogger.info(category: .general, "Logs cleared by user")
     }
     
     private func formattedLogSize() -> String {
