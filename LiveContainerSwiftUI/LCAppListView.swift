@@ -233,7 +233,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             let strictHidingEnabled = LCUtils.appGroupUserDefault.bool(forKey: LCUserDefaultStrictHidingKey)
             if strictHidingEnabled {
                 if sharedModel.isHiddenAppUnlocked {
-                    AppListSection(title: "lc.appList.hiddenApps".loc, apps: filteredHiddenApps, animate: !searchContext.isTyping) { app in
+                    AppListSection(title: LocalizedStringKey("lc.appList.hiddenApps".loc), apps: filteredHiddenApps, animate: !searchContext.isTyping) { app in
                         LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
                     }
                     .transition(.opacity)
@@ -244,7 +244,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     }
                 }
             } else if sharedModel.hiddenApps.count > 0 {
-                AppListSection(title: "lc.appList.hiddenApps".loc, apps: filteredHiddenApps, animate: !searchContext.isTyping) { app in
+                AppListSection(title: LocalizedStringKey("lc.appList.hiddenApps".loc), apps: filteredHiddenApps, animate: !searchContext.isTyping) { app in
                     Group {
                         if sharedModel.isHiddenAppUnlocked {
                             LCAppBanner(appModel: app, delegate: self, appDataFolders: $appDataFolderNames, tweakFolders: $tweakFolderNames)
