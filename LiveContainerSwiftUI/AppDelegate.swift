@@ -49,11 +49,14 @@ import Intents
     }
 }
 
+@MainActor
 class SceneDelegate: NSObject, UIWindowSceneDelegate, ObservableObject { // Make SceneDelegate conform ObservableObject
+    static var shared: SceneDelegate?
     var window: UIWindow?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         self.window = (scene as? UIWindowScene)?.keyWindow
+        SceneDelegate.shared = self
     }
     
 }

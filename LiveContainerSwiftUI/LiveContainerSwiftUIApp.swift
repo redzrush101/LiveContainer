@@ -94,12 +94,14 @@ struct LiveContainerSwiftUIApp : SwiftUI.App {
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 .environmentObject(DataManager.shared.model)
                 .environmentObject(LCAppSortManager.shared)
+                .environmentObject(SceneDelegate.shared ?? SceneDelegate())
         }
         
         if UIApplication.shared.supportsMultipleScenes, #available(iOS 16.1, *) {
             WindowGroup(id: "appView", for: String.self) { $id in
                 if let id {
                     MultitaskAppWindow(id: id)
+                        .environmentObject(SceneDelegate.shared ?? SceneDelegate())
                 }
             }
 
