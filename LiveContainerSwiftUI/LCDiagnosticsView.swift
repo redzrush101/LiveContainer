@@ -134,7 +134,7 @@ struct LCDiagnosticsView: View {
         
         do {
             let attributes = try FileManager.default.attributesOfItem(atPath: logURL.path)
-            if let fileSize = attributes[.size] as? UInt64 {
+            if let fileSize = attributes[FileAttributeKey.size] as? UInt64 {
                 let formatter = ByteCountFormatter()
                 formatter.countStyle = .file
                 return formatter.string(fromByteCount: Int64(fileSize))

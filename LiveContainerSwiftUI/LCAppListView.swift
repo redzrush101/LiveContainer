@@ -612,14 +612,12 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         
         // patch and sign it
         var signError : String? = nil
-        var signSuccess = false
         await withUnsafeContinuation({ c in
             if appToReplace?.uiDontSign ?? false || LCUtils.appGroupUserDefault.bool(forKey: "LCDontSignApp") {
                 finalNewApp.dontSign = true
             }
             finalNewApp.patchExecAndSignIfNeed(completionHandler: { success, error in
                 signError = error
-                signSuccess = success
                 c.resume()
             }, progressHandler: { signProgress in
                 installProgress.addChild(signProgress!, withPendingUnitCount: 20)
