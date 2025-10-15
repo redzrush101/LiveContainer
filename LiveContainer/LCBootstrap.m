@@ -4,6 +4,7 @@
 #import "UIKitPrivate.h"
 #import "utils.h"
 #import "LCConstants.h"
+#import "LCLogger.h"
 
 #include <mach/mach.h>
 #include <mach-o/dyld.h>
@@ -346,6 +347,8 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     
     NSURL *appGroupFolder = nil;
     
+    [LCLogger infoWithCategory:LCLogCategoryBootstrap message:@"Selected app: %@, container: %@", selectedApp ?: @"(none)", selectedContainer ?: @"(default)"];
+    
     NSString *bundlePath = 0;
     if(!isSideStore) {
         bundlePath = [NSString stringWithFormat:@"%@/Applications/%@", docPath, selectedApp];
@@ -360,6 +363,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
 
     // not found locally, let's look for the app in shared folder
     if(!guestAppInfo) {
+        [LCLogger debugWithCategory:LCLogCategoryBootstrap message:@"App not found locally, checking shared folder"];
         NSURL *appGroupPath = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]];
         appGroupFolder = [appGroupPath URLByAppendingPathComponent:@"LiveContainer"];
         bundlePath = [NSString stringWithFormat:@"%@/Applications/%@", appGroupFolder.path, selectedApp];
@@ -368,8 +372,11 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     }
     
     if(!guestAppInfo) {
+        [LCLogger errorWithCategory:LCLogCategoryBootstrap message:@"App bundle not found: %@", selectedApp];
         return LCBootstrapFinish(&state, processPathUpdated, @"App bundle not found! Unable to read LCAppInfo.plist.");
     }
+    
+    [LCLogger infoWithCategory:LCLogCategoryBootstrap message:@"Loading app from: %@", bundlePath];
     
     if([guestAppInfo[@"doUseLCBundleId"] boolValue] ) {
         NSMutableDictionary* infoPlist = [NSMutableDictionary dictionaryWithContentsOfFile:[NSString stringWithFormat:@"%@/Info.plist", bundlePath]];
@@ -722,6 +729,8 @@ int LiveContainerMain(int argc, char *argv[]) {
     // Reset bootstrap flags to ensure clean state for each launch
     isSharedBundle = false;
     isSideStore = false;
+    
+    [LCLogger infoWithCategory:LCLogCategoryBootstrap message:@"LiveContainer bootstrap started"];
     
     lcMainBundle = [NSBundle mainBundle];
     lcUserDefaults = NSUserDefaults.standardUserDefaults;

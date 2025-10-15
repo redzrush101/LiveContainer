@@ -481,9 +481,15 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     func startInstallApp(_ fileUrl:URL) async {
         do {
             self.installprogressVisible = true
+            LCLogger.info(withCategory: LCLogCategoryInstallation,
+                         message: "Starting installation from: %@", fileUrl.lastPathComponent)
             try await installIpaFile(fileUrl)
             try FileManager.default.removeItem(at: fileUrl)
+            LCLogger.info(withCategory: LCLogCategoryInstallation,
+                         message: "Installation completed successfully")
         } catch {
+            LCLogger.error(withCategory: LCLogCategoryInstallation,
+                          message: "Installation failed: %@", error.localizedDescription)
             errorInfo = error.localizedDescription
             errorShow = true
             self.installprogressVisible = false
@@ -493,6 +499,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     nonisolated func decompress(_ path: String, _ destination: String ,_ progress: Progress) async throws {
         let result = extract(path, destination, progress)
         if result != 0 {
+            LCLogger.error(withCategory: LCLogCategoryInstallation,
+                          message: "IPA extraction failed with code: %d", result)
             throw LCAppError.extractionFailed(underlyingError: nil)
         }
     }

@@ -173,6 +173,12 @@ struct LCSettingsView: View {
                     Text("lc.settings.JitDesc".loc)
                 }
                 
+                Section {
+                    NavigationLink("lc.settings.diagnostics".loc, destination: LCDiagnosticsView())
+                } header: {
+                    Text("lc.settings.support".loc)
+                }
+                
                 Section{
                     Toggle(isOn: $dynamicColors) {
                         Text("lc.settings.dynamicColors".loc)
