@@ -46,7 +46,7 @@ typedef NS_ENUM(NSInteger, LCLogCategory) {
 + (void)errorWithCategory:(LCLogCategory)category message:(NSString *)format, ... NS_FORMAT_FUNCTION(2,3);
 
 /// Export diagnostics as a redacted text file
-+ (nullable NSURL *)exportDiagnostics:(NSError **)error;
++ (nullable NSURL *)exportDiagnostics:(NSError **)error NS_SWIFT_NAME(exportDiagnostics());
 
 /// Get current log file URL
 + (nullable NSURL *)currentLogFileURL;

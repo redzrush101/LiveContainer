@@ -100,21 +100,22 @@ struct LCDiagnosticsView: View {
         isExporting = true
         
         DispatchQueue.global(qos: .userInitiated).async {
-            var error: NSError?
-            let url = LCLogger.exportDiagnostics(&error)
-            
-            DispatchQueue.main.async {
-                isExporting = false
+            do {
+                let url = try LCLogger.exportDiagnostics()
                 
-                if let error = error {
-                    errorMessage = error.localizedDescription
-                    showError = true
-                } else if let url = url {
-                    exportURL = url
-                    showShareSheet = true
+                DispatchQueue.main.async {
+                    self.isExporting = false
+                    self.exportURL = url
+                    self.showShareSheet = true
                     
                     // Log the export action
                     LCLogger.info(category: .general, "Diagnostics exported successfully")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.isExporting = false
+                    self.errorMessage = error.localizedDescription
+                    self.showError = true
                 }
             }
         }
