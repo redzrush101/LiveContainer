@@ -24,30 +24,30 @@ final class SearchContext: ObservableObject {
 
 @MainActor
 final class AppListViewModel: ObservableObject {
-    @Published var searchContext = SearchContext()
-
-    func filteredApps(from apps: [LCAppModel]) -> [LCAppModel] {
-        guard !searchContext.debouncedQuery.isEmpty else {
+    func filteredApps(from apps: [LCAppModel], searchContext: SearchContext) -> [LCAppModel] {
+        let query = searchContext.debouncedQuery
+        guard !query.isEmpty else {
             return apps
         }
         return apps.filter { app in
             guard let bundleIdentifier = app.appInfo.bundleIdentifier() else { return false }
-            let displayName = app.appInfo.displayName()
-            return displayName.localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
-            bundleIdentifier.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
+            let displayName = app.appInfo.displayName() ?? ""
+            return displayName.localizedCaseInsensitiveContains(query) ||
+            bundleIdentifier.localizedCaseInsensitiveContains(query)
         }
     }
 
-    func filteredHiddenApps(from apps: [LCAppModel], isHiddenUnlocked: Bool) -> [LCAppModel] {
-        if searchContext.debouncedQuery.isEmpty || !isHiddenUnlocked {
+    func filteredHiddenApps(from apps: [LCAppModel], isHiddenUnlocked: Bool, searchContext: SearchContext) -> [LCAppModel] {
+        let query = searchContext.debouncedQuery
+        if query.isEmpty || !isHiddenUnlocked {
             return apps
         }
 
         return apps.filter { app in
             guard let bundleIdentifier = app.appInfo.bundleIdentifier() else { return false }
-            let displayName = app.appInfo.displayName()
-            return displayName.localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
-            bundleIdentifier.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
+            let displayName = app.appInfo.displayName() ?? ""
+            return displayName.localizedCaseInsensitiveContains(query) ||
+            bundleIdentifier.localizedCaseInsensitiveContains(query)
         }
     }
 }

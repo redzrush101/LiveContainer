@@ -17,6 +17,7 @@ struct AppReplaceOption : Hashable {
 struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @Binding var appDataFolderNames: [String]
     @Binding var tweakFolderNames: [String]
+    @ObservedObject var searchContext: SearchContext
     
     @State var didAppear = false
     // ipa choosing stuff
@@ -69,20 +70,19 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         return sharedAppSortManager.sortedHiddenApps
     }
     
-    private var searchContext: SearchContext { viewModel.searchContext }
-    
     var filteredApps: [LCAppModel] {
-        viewModel.filteredApps(from: sortedApps)
+        viewModel.filteredApps(from: sortedApps, searchContext: searchContext)
     }
     
     var filteredHiddenApps: [LCAppModel] {
-        viewModel.filteredHiddenApps(from: sortedHiddenApps, isHiddenUnlocked: sharedModel.isHiddenAppUnlocked)
+        viewModel.filteredHiddenApps(from: sortedHiddenApps, isHiddenUnlocked: sharedModel.isHiddenAppUnlocked, searchContext: searchContext)
     }
     
-    init(appDataFolderNames: Binding<[String]>, tweakFolderNames: Binding<[String]>) {
+    init(appDataFolderNames: Binding<[String]>, tweakFolderNames: Binding<[String]>, searchContext: SearchContext) {
         _installOptions = State(initialValue: [])
         _appDataFolderNames = appDataFolderNames
         _tweakFolderNames = tweakFolderNames
+        _searchContext = ObservedObject(wrappedValue: searchContext)
     }
     
     var body: some View {

@@ -20,14 +20,14 @@ struct LCTabView: View {
     @State var shouldToggleMainWindowOpen = false
     @Environment(\.scenePhase) var scenePhase
     let pub = NotificationCenter.default.publisher(for: UIScene.didDisconnectNotification)
+    @StateObject private var searchContext = SearchContext()
     
     var body: some View {
         Group {
-            let appListView = LCAppListView(appDataFolderNames: $appDataFolderNames, tweakFolderNames: $tweakFolderNames)
             if #available(iOS 19.0, *), SharedModel.isLiquidGlassSearchEnabled {
                 TabView {
                     Tab("lc.tabView.apps".loc, systemImage: "square.stack.3d.up.fill") {
-                        appListView
+                        LCAppListView(appDataFolderNames: $appDataFolderNames, tweakFolderNames: $tweakFolderNames, searchContext: searchContext)
                     }
                     if DataManager.shared.model.multiLCStatus != 2 {
                         Tab("lc.tabView.tweaks".loc, systemImage: "wrench.and.screwdriver") {
@@ -38,13 +38,13 @@ struct LCTabView: View {
                         LCSettingsView(appDataFolderNames: $appDataFolderNames)
                     }
                     Tab("Search".loc, systemImage: "magnifyingglass", role: .search) {
-                        appListView
-                            .searchable(text: appListView.$searchContext.query)
+                        LCAppListView(appDataFolderNames: $appDataFolderNames, tweakFolderNames: $tweakFolderNames, searchContext: searchContext)
+                            .searchable(text: $searchContext.query)
                     }
                 }
             } else {
                 TabView {
-                    appListView
+                    LCAppListView(appDataFolderNames: $appDataFolderNames, tweakFolderNames: $tweakFolderNames, searchContext: searchContext)
                         .tabItem {
                             Label("lc.tabView.apps".loc, systemImage: "square.stack.3d.up.fill")
                         }

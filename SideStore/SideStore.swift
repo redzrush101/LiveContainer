@@ -142,13 +142,18 @@ class RefreshHandler: NSObject, RefreshServer {
             let uuid = await ext.beginRequest(withInputItems: [extensionItem])
             sideStorePid = ext.pid(forRequestIdentifier: uuid)
             
-            try await withUnsafeThrowingContinuation { c in
-                self.launchContinuation = c
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    if let c = self.launchContinuation {
-                        c.resume(throwing: NSError(domain: "SideStore", code: 1, userInfo: [NSLocalizedDescriptionKey: "Built-in SideStore failed to start in reasonable time"]))
+            try await withUnsafeThrowingContinuation { [weak self] continuation in
+                guard let self else {
+                    continuation.resume(throwing: NSError(domain: "SideStore", code: 1, userInfo: [NSLocalizedDescriptionKey: "Built-in SideStore deallocated before launch completed"]))
+                    return
+                }
+                self.launchContinuation = continuation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+                    guard let self else { return }
+                    if let pending = self.launchContinuation {
+                        pending.resume(throwing: NSError(domain: "SideStore", code: 1, userInfo: [NSLocalizedDescriptionKey: "Built-in SideStore failed to start in reasonable time"]))
                         self.launchContinuation = nil
-                        ext._kill(9)
+                        self.ext?._kill(9)
                     }
                 }
             }
