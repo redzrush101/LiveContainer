@@ -54,8 +54,7 @@ struct AppListToolbar: ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Picker("Sort by", selection: $appSortType) {
-                    ForEach(AppSortType.allCases, id: \.
-self) { sortType in
+                    ForEach(AppSortType.allCases, id: \.self) { sortType in
                         Label(sortType.displayName, systemImage: sortType.systemImage)
                             .tag(sortType)
                     }

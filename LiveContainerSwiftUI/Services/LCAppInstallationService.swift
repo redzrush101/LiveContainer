@@ -155,7 +155,8 @@ final class LCAppInstallationService: LCAppInstallationServicing {
             try? fileManager.removeItem(at: url)
         }
 
-        LCLogger.info(category: .installation, "Installation finished for: \(finalNewApp.displayName())")
+        let displayName = finalNewApp.displayName() ?? "Unknown"
+        LCLogger.info(category: .installation, "Installation finished for: \(displayName)")
 
         return LCAppInstallationResult(appInfo: finalNewApp,
                                        replacedApp: appToReplace,
