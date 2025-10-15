@@ -900,7 +900,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     
     func jitLaunch(withPID pid: Int) async {
         await MainActor.run {
-            if let url = URL(string: "stikjit://enable-jit?bundle-id=\(Bundle.main.bundleIdentifier!)pid=\(pid)") {
+            if let url = URL(string: "stikjit://enable-jit?bundle-id=\(Bundle.main.bundleIdentifier!)&pid=\(pid)") {
                 UIApplication.shared.open(url)
             }
         }
