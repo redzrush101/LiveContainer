@@ -5,6 +5,8 @@ void swizzle(Class class, SEL originalAction, SEL swizzledAction);
 void swizzleClassMethod(Class class, SEL originalAction, SEL swizzledAction);
 
 // Exported from the main executable
+#ifndef LC_NSUSERDEFAULTS_LIVE_CONTAINER_CATEGORY
+#define LC_NSUSERDEFAULTS_LIVE_CONTAINER_CATEGORY
 @interface NSUserDefaults(LiveContainer)
 + (instancetype)lcUserDefaults;
 + (instancetype)lcSharedDefaults;
@@ -19,3 +21,4 @@ void swizzleClassMethod(Class class, SEL originalAction, SEL swizzledAction);
 + (bool)isSideStore;
 + (bool)sideStoreExist;
 @end
+#endif

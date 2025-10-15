@@ -51,6 +51,9 @@ int dyld_get_program_sdk_version(void);
 + (NSString *)liveProcessBundleIdentifier;
 @end
 
+#ifndef LC_NSUSERDEFAULTS_LIVE_CONTAINER_CATEGORY
+#define LC_NSUSERDEFAULTS_LIVE_CONTAINER_CATEGORY
 @interface NSUserDefaults(LiveContainer)
 + (bool)sideStoreExist;
 @end
+#endif

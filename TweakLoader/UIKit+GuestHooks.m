@@ -12,7 +12,7 @@ NSArray<NSString*>* LCUrlSchemes = nil;
 NSUUID* idForVendorUUID = nil;
 
 __attribute__((constructor))
-static void UIKitGuestHooksInit() {
+static void UIKitGuestHooksInit(void) {
     swizzle(UIApplication.class, @selector(_applicationOpenURLAction:payload:origin:), @selector(hook__applicationOpenURLAction:payload:origin:));
     swizzle(UIApplication.class, @selector(_connectUISceneFromFBSScene:transitionContext:), @selector(hook__connectUISceneFromFBSScene:transitionContext:));
     swizzle(UIApplication.class, @selector(openURL:options:completionHandler:), @selector(hook_openURL:options:completionHandler:));

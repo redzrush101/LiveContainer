@@ -124,7 +124,9 @@ typedef int	vm_prot_t;
 #define CPU_SUBTYPE_ARM64_ALL 		0
 #define CPU_SUBTYPE_ARM64_V8 		1
 #define CPU_SUBTYPE_ARM64E 			2
+#ifndef CPU_SUBTYPE_ARM64_32_V8
 #define CPU_SUBTYPE_ARM64_32_V8		1
+#endif
 
 
 #define FAT_MAGIC 		0xcafebabe

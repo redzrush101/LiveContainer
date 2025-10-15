@@ -25,6 +25,8 @@ bool aarch64_emulate_add_imm(uint32_t instruction, uint32_t *dst, uint32_t *src,
 uint64_t aarch64_emulate_adrp_add(uint32_t instruction, uint32_t addInstruction, uint64_t pc);
 uint64_t aarch64_emulate_adrp_ldr(uint32_t instruction, uint32_t ldrInstruction, uint64_t pc);
 
+#ifndef LC_NSUSERDEFAULTS_LIVE_CONTAINER_CATEGORY
+#define LC_NSUSERDEFAULTS_LIVE_CONTAINER_CATEGORY
 @interface NSUserDefaults(LiveContainer)
 + (instancetype)lcUserDefaults;
 + (instancetype)lcSharedDefaults;
@@ -39,6 +41,7 @@ uint64_t aarch64_emulate_adrp_ldr(uint32_t instruction, uint32_t ldrInstruction,
 + (bool)isSideStore;
 + (bool)sideStoreExist;
 @end
+#endif
 
 @interface NSDictionary(lc)
 - (BOOL)writeBinToFile:(NSString *)path atomically:(BOOL)useAuxiliaryFile;
