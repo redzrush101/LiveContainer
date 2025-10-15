@@ -18,8 +18,10 @@ public struct RefreshAllAppsWidgetIntent: AppIntent, ProgressReportingIntent
     
     public func perform() async throws -> some IntentResult
     {
-        RefreshHandler.shared.progress = progress
-        progress.totalUnitCount = 100
+        await MainActor.run {
+            RefreshHandler.shared.progress = progress
+            progress.totalUnitCount = 100
+        }
         try await RefreshHandler.shared.startRefresh()
         return .result()
     }
@@ -50,8 +52,10 @@ public struct RefreshAllAppsIntent: AppIntent, CustomIntentMigratedAppIntent, Pr
     
     public func perform() async throws -> some IntentResult
     {
-        RefreshHandler.shared.progress = progress
-        progress.totalUnitCount = 100
+        await MainActor.run {
+            RefreshHandler.shared.progress = progress
+            progress.totalUnitCount = 100
+        }
         try await RefreshHandler.shared.startRefresh()
         return .result(dialog: "All apps have been refreshed.")
     }
@@ -174,28 +178,36 @@ class RefreshHandler: NSObject, RefreshServer {
         ext?._kill(9)
     }
     
-    func updateProgress(_ value: Double) {
-        progress?.completedUnitCount = Int64(value*100)
-    }
-    
-    func finish(_ error: String?) {
-        if let error {
-            c?.resume(throwing: NSError(domain: "SideStore", code: 1, userInfo: [NSLocalizedDescriptionKey: error]))
-            c = nil
-        } else {
-            c?.resume()
-            c = nil
+    nonisolated func updateProgress(_ value: Double) {
+        MainActor.assumeIsolated {
+            progress?.completedUnitCount = Int64(value*100)
         }
     }
     
-    func onConnection(_ connection: NSXPCConnection!) {
-        connection.remoteObjectInterface = NSXPCInterface(with: RefreshClient.self)
-        client = connection.remoteObjectProxy as? RefreshClient
+    nonisolated func finish(_ error: String?) {
+        MainActor.assumeIsolated {
+            if let error {
+                c?.resume(throwing: NSError(domain: "SideStore", code: 1, userInfo: [NSLocalizedDescriptionKey: error]))
+                c = nil
+            } else {
+                c?.resume()
+                c = nil
+            }
+        }
     }
     
-    func finishedLaunching() {
-        launchContinuation?.resume()
-        launchContinuation = nil
+    nonisolated func onConnection(_ connection: NSXPCConnection!) {
+        MainActor.assumeIsolated {
+            connection.remoteObjectInterface = NSXPCInterface(with: RefreshClient.self)
+            client = connection.remoteObjectProxy as? RefreshClient
+        }
+    }
+    
+    nonisolated func finishedLaunching() {
+        MainActor.assumeIsolated {
+            launchContinuation?.resume()
+            launchContinuation = nil
+        }
     }
     
 }
