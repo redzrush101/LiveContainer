@@ -169,6 +169,7 @@
 			membershipExceptions = (
 				"SideStore-Bridging-Header.h",
 				XPCServer.h,
+				LCConstantsSymbols.m,
 			);
 			target = 173545A72E2C7913001B3B4C /* SideStore */;
 		};
@@ -180,6 +181,7 @@
 				TweakLoader.m,
 				"UIKit+GuestHooks.m",
 				utils.m,
+				LCConstantsSymbols.m,
 			);
 			target = 174140392D9C0D0000F3F928 /* TweakLoader */;
 		};
@@ -194,6 +196,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				LCConstantsSymbols.m,
 			);
 			target = E1292AE42DCA3A660065E12D /* LiveProcess */;
 		};
