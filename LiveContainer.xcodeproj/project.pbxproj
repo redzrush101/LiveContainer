@@ -28,7 +28,6 @@
 		E16D95752E1CD2B90068EB63 /* LiveContainerShared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E1292BD62DCA3B660065E12D /* LiveContainerShared.framework */; };
 	E1A0B1022E4C6A9A00D12345 /* LCBundleTransaction.m in Sources */ = {isa = PBXBuildFile; fileRef = E1A0B1012E4C6A9A00D12345 /* LCBundleTransaction.m */; };
 	E1A0B1032E4C6A9A00D12345 /* LCBundleTransaction.h in Headers */ = {isa = PBXBuildFile; fileRef = E1A0B1002E4C6A9A00D12345 /* LCBundleTransaction.h */; settings = {ATTRIBUTES = (Public, ); }; };
-	E1A0B1062E4C6B4C00D12345 /* LCConstants.m in Sources */ = {isa = PBXBuildFile; fileRef = E1A0B1052E4C6B4C00D12345 /* LCConstants.m */; };
 	E1A0B1072E4C6B4C00D12345 /* LCConstants.h in Headers */ = {isa = PBXBuildFile; fileRef = E1A0B1042E4C6B4C00D12345 /* LCConstants.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
@@ -133,7 +132,6 @@
 	E1A0B1002E4C6A9A00D12345 /* LCBundleTransaction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCBundleTransaction.h; sourceTree = "<group>"; };
 	E1A0B1012E4C6A9A00D12345 /* LCBundleTransaction.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCBundleTransaction.m; sourceTree = "<group>"; };
 	E1A0B1042E4C6B4C00D12345 /* LCConstants.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCConstants.h; sourceTree = "<group>"; };
-	E1A0B1052E4C6B4C00D12345 /* LCConstants.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LCConstants.m; sourceTree = "<group>"; };
 		173545A82E2C7913001B3B4C /* SideStore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SideStore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		17413FB52D9C0BAE00F3F928 /* LiveContainerSwiftUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = LiveContainerSwiftUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1741403A2D9C0D0000F3F928 /* TweakLoader.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = TweakLoader.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -169,7 +167,6 @@
 			membershipExceptions = (
 				"SideStore-Bridging-Header.h",
 				XPCServer.h,
-				LCConstantsSymbols.m,
 			);
 			target = 173545A72E2C7913001B3B4C /* SideStore */;
 		};
@@ -181,7 +178,6 @@
 				TweakLoader.m,
 				"UIKit+GuestHooks.m",
 				utils.m,
-				LCConstantsSymbols.m,
 			);
 			target = 174140392D9C0D0000F3F928 /* TweakLoader */;
 		};
@@ -196,7 +192,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				LCConstantsSymbols.m,
 			);
 			target = E1292AE42DCA3A660065E12D /* LiveProcess */;
 		};
@@ -342,8 +337,7 @@
 		172CA85F2D9D721700CF6989 /* LiveContainer */ = {
 			isa = PBXGroup;
 			children = (
-			E1A0B1042E4C6B4C00D12345 /* LCConstants.h */,
-			E1A0B1052E4C6B4C00D12345 /* LCConstants.m */,
+		E1A0B1042E4C6B4C00D12345 /* LCConstants.h */,
 				E16D95762E1CD49E0068EB63 /* LCMachOUtils.h */,
 				E1292C032DCA3C160065E12D /* main.c */,
 				E1292C1A2DCA48F00065E12D /* Tweaks */,
