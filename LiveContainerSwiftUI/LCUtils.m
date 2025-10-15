@@ -287,23 +287,28 @@ static UIViewController *LCMultitaskRootViewController(void) {
 
 
 + (void)loadStoreFrameworksWithError2:(NSError **)error {
-    // too lazy to use dispatch_once
-    static BOOL loaded = NO;
-    if (loaded) return;
+    static dispatch_once_t onceToken;
+    static NSError *loadError = nil;
 
-    void* handle = dlopen("@executable_path/Frameworks/ZSign.dylib", RTLD_GLOBAL);
-    const char* dlerr = dlerror();
-    if (!handle || (uint64_t)handle > 0xf00000000000) {
-        if (dlerr) {
-            *error = [NSError errorWithDomain:NSBundle.mainBundle.bundleIdentifier code:1 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Failed to load ZSign: %s", dlerr]}];
-        } else {
-            *error = [NSError errorWithDomain:NSBundle.mainBundle.bundleIdentifier code:1 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Failed to load ZSign: An unknown error occurred."]}];
+    dispatch_once(&onceToken, ^{
+        void *handle = dlopen("@executable_path/Frameworks/ZSign.dylib", RTLD_GLOBAL);
+        const char *dlerr = dlerror();
+
+        if (!handle || (uint64_t)handle > 0xf00000000000) {
+            NSString *message = dlerr ? [NSString stringWithFormat:@"Failed to load ZSign: %s", dlerr]
+                                    : @"Failed to load ZSign: An unknown error occurred.";
+            loadError = [NSError errorWithDomain:NSBundle.mainBundle.bundleIdentifier
+                                            code:1
+                                        userInfo:@{ NSLocalizedDescriptionKey: message }];
+            if (dlerr) {
+                NSLog(@"[LC] %s", dlerr);
+            }
         }
-        NSLog(@"[LC] %s", dlerr);
-        return;
+    });
+
+    if (loadError && error) {
+        *error = loadError;
     }
-    
-    loaded = YES;
 }
 
 + (NSURL *)storeBundlePath {
