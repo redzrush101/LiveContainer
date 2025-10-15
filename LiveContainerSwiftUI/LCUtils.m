@@ -11,6 +11,96 @@
 
 Class LCSharedUtilsClass = nil;
 
+static NSString *const LCMultitaskErrorDomain = @"com.kdt.livecontainer.multitask";
+
+typedef NS_ENUM(NSInteger, LCMultitaskErrorCode) {
+    LCMultitaskErrorCodeMissingExtension = 1,
+    LCMultitaskErrorCodeMissingSelection = 2,
+    LCMultitaskErrorCodeMissingContainer = 3,
+    LCMultitaskErrorCodeNoActiveWindow = 4,
+};
+
+static NSError *LCMultitaskError(NSString *displayName, LCMultitaskErrorCode code, NSString *message) {
+    NSMutableDictionary *userInfo = [@{NSLocalizedDescriptionKey : message ?: @"Unknown error"} mutableCopy];
+    if (displayName) {
+        userInfo[@"LCDisplayName"] = displayName;
+    }
+    return [NSError errorWithDomain:LCMultitaskErrorDomain code:code userInfo:userInfo];
+}
+
+static BOOL LCMultitaskFetchSelection(NSString *displayName, NSString **bundleId, NSString **dataUUID, NSError **error) {
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    NSString *selectedBundleId = [defaults stringForKey:@"selected"];
+    NSString *selectedContainer = [defaults stringForKey:@"selectedContainer"];
+
+    if (!selectedBundleId || !selectedContainer) {
+        if (error) {
+            NSString *message;
+            if (!selectedBundleId && !selectedContainer) {
+                message = NSLocalizedString(@"Unable to determine the selected app for multitasking. Please choose an app and try again.", nil);
+            } else if (!selectedBundleId) {
+                message = NSLocalizedString(@"Missing bundle identifier for the selected multitask app.", nil);
+            } else {
+                message = NSLocalizedString(@"Missing selected container for the multitask app.", nil);
+            }
+            *error = LCMultitaskError(displayName, !selectedBundleId ? LCMultitaskErrorCodeMissingSelection : LCMultitaskErrorCodeMissingContainer, message);
+        }
+        return NO;
+    }
+
+    if (bundleId) {
+        *bundleId = selectedBundleId;
+    }
+    if (dataUUID) {
+        *dataUUID = selectedContainer;
+    }
+    return YES;
+}
+
+static void LCMultitaskClearSelection(NSUserDefaults *defaults) {
+    [defaults removeObjectForKey:@"selected"];
+    [defaults removeObjectForKey:@"selectedContainer"];
+}
+
+static UIViewController *LCMultitaskRootViewController(void) {
+    UIApplication *application = UIApplication.sharedApplication;
+
+    for (UIScene *scene in application.connectedScenes) {
+        if (![scene isKindOfClass:UIWindowScene.class]) {
+            continue;
+        }
+
+        if (scene.activationState != UISceneActivationStateForegroundActive &&
+            scene.activationState != UISceneActivationStateForegroundInactive) {
+            continue;
+        }
+
+        UIWindowScene *windowScene = (UIWindowScene *)scene;
+        for (UIWindow *window in windowScene.windows) {
+            if (window.isHidden) {
+                continue;
+            }
+            if (window.isKeyWindow && window.rootViewController) {
+                return window.rootViewController;
+            }
+        }
+
+        for (UIWindow *window in windowScene.windows) {
+            if (!window.isHidden && window.rootViewController) {
+                return window.rootViewController;
+            }
+        }
+    }
+
+    for (UIWindow *window in application.windows) {
+        if (!window.isHidden && window.rootViewController) {
+            return window.rootViewController;
+        }
+    }
+
+    return nil;
+}
+
 // make SFSafariView happy and open data: URLs
 @implementation NSURL(hack)
 - (BOOL)safari_isHTTPFamilyURL {
@@ -86,68 +176,109 @@ Class LCSharedUtilsClass = nil;
 }
 
 + (void)launchMultitaskGuestApp:(NSString *)displayName completionHandler:(void (^)(NSError *error))completionHandler {
-    if(!self.liveProcessBundleIdentifier) {
-        NSError *error = [NSError errorWithDomain:displayName code:2 userInfo:@{NSLocalizedDescriptionKey: @"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions"}];
-        completionHandler(error);
-    }
-    
+    NSString *liveProcessIdentifier = self.liveProcessBundleIdentifier;
     NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
-    NSString* bundleId = [lcUserDefaults stringForKey:@"selected"];
-    NSString* dataUUID = [lcUserDefaults stringForKey:@"selectedContainer"];
-    
-    [lcUserDefaults removeObjectForKey:@"selected"];
-    [lcUserDefaults removeObjectForKey:@"selectedContainer"];
-    
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (@available(iOS 16.1, *)) {
-            if(UIApplication.sharedApplication.supportsMultipleScenes && [NSUserDefaults.lcSharedDefaults integerForKey:@"LCMultitaskMode"] == 1) {
-                [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId];
-                MultitaskDockManager *dock = [MultitaskDockManager shared];
-                [dock addRunningApp:displayName appUUID:dataUUID view:nil];
-                
-                completionHandler(nil);
-                return;
-            }
+
+    void (^finish)(NSError *) = ^(NSError *error) {
+        if (!completionHandler) {
+            return;
         }
-        
-        UIViewController *rootVC = ((UIWindowScene *)UIApplication.sharedApplication.connectedScenes.anyObject).keyWindow.rootViewController;
-        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completionHandler(error);
+        });
+    };
 
-        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID rootVC:rootVC];
-        launcherView.view.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
-        completionHandler(nil);
-        
-    });
-    
-}
-
-+ (void)launchMultitaskGuestAppWithPIDCallback:(NSString *)displayName pidCompletionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
-    if(!self.liveProcessBundleIdentifier) {
-        NSError *error = [NSError errorWithDomain:displayName code:2 userInfo:@{NSLocalizedDescriptionKey: @"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions"}];
-        if (completionHandler) completionHandler(nil, error);
+    if (!liveProcessIdentifier) {
+        NSError *error = LCMultitaskError(displayName, LCMultitaskErrorCodeMissingExtension, NSLocalizedString(@"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions", nil));
+        finish(error);
         return;
     }
 
-    NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
-    NSString* bundleId = [lcUserDefaults stringForKey:@"selected"];
-    NSString* dataUUID = [lcUserDefaults stringForKey:@"selectedContainer"];
-
-    [lcUserDefaults removeObjectForKey:@"selected"];
-    [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+    NSString *bundleId = nil;
+    NSString *dataUUID = nil;
+    NSError *selectionError = nil;
+    if (!LCMultitaskFetchSelection(displayName, &bundleId, &dataUUID, &selectionError)) {
+        finish(selectionError);
+        return;
+    }
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        UIViewController *rootVC = ((UIWindowScene *)UIApplication.sharedApplication.connectedScenes.anyObject).keyWindow.rootViewController;
-        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID rootVC:rootVC];
-        // Wire PID callback
-        launcherView.pidAvailableHandler = ^(NSNumber *pid, NSError *error) {
-            if (completionHandler) {
-                completionHandler(pid, error);
+        UIViewController *rootVC = LCMultitaskRootViewController();
+        if (!rootVC) {
+            NSError *error = LCMultitaskError(displayName, LCMultitaskErrorCodeNoActiveWindow, NSLocalizedString(@"Unable to locate an active window to present multitasking content.", nil));
+            finish(error);
+            return;
+        }
+
+        if (@available(iOS 16.1, *)) {
+            if (UIApplication.sharedApplication.supportsMultipleScenes && [NSUserDefaults.lcSharedDefaults integerForKey:@"LCMultitaskMode"] == 1) {
+                [MultitaskWindowManager openAppWindowWithDisplayName:displayName dataUUID:dataUUID bundleId:bundleId];
+                MultitaskDockManager *dock = [MultitaskDockManager shared];
+                [dock addRunningApp:displayName appUUID:dataUUID view:nil];
+                LCMultitaskClearSelection(lcUserDefaults);
+                finish(nil);
+                return;
             }
+        }
+
+        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID rootVC:rootVC];
+        launcherView.view.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
+        LCMultitaskClearSelection(lcUserDefaults);
+        finish(nil);
+        (void)launcherView;
+    });
+}
+
++ (void)launchMultitaskGuestAppWithPIDCallback:(NSString *)displayName pidCompletionHandler:(void (^)(NSNumber *pid, NSError *error))completionHandler {
+    NSString *liveProcessIdentifier = self.liveProcessBundleIdentifier;
+    NSUserDefaults *lcUserDefaults = NSUserDefaults.standardUserDefaults;
+
+    void (^finish)(NSNumber *, NSError *) = ^(NSNumber *pid, NSError *error) {
+        if (!completionHandler) {
+            return;
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completionHandler(pid, error);
+        });
+    };
+
+    if (!liveProcessIdentifier) {
+        NSError *error = LCMultitaskError(displayName, LCMultitaskErrorCodeMissingExtension, NSLocalizedString(@"LiveProcess extension not found. Please reinstall LiveContainer and select Keep Extensions", nil));
+        finish(nil, error);
+        return;
+    }
+
+    NSString *bundleId = nil;
+    NSString *dataUUID = nil;
+    NSError *selectionError = nil;
+    if (!LCMultitaskFetchSelection(displayName, &bundleId, &dataUUID, &selectionError)) {
+        finish(nil, selectionError);
+        return;
+    }
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *rootVC = LCMultitaskRootViewController();
+        if (!rootVC) {
+            NSError *error = LCMultitaskError(displayName, LCMultitaskErrorCodeNoActiveWindow, NSLocalizedString(@"Unable to locate an active window to present multitasking content.", nil));
+            finish(nil, error);
+            return;
+        }
+
+        __block BOOL callbackDispatched = NO;
+        DecoratedAppSceneViewController *launcherView = [[DecoratedAppSceneViewController alloc] initWindowName:displayName bundleId:bundleId dataUUID:dataUUID rootVC:rootVC];
+        launcherView.pidAvailableHandler = ^(NSNumber *pid, NSError *error) {
+            if (callbackDispatched) {
+                return;
+            }
+            callbackDispatched = YES;
+            finish(pid, error);
         };
         launcherView.view.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
         launcherView.view.center = rootVC.view.center;
         [rootVC addChildViewController:launcherView];
         [rootVC.view addSubview:launcherView.view];
+        LCMultitaskClearSelection(lcUserDefaults);
+        (void)launcherView;
     });
 }
 

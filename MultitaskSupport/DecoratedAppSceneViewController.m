@@ -362,16 +362,20 @@ void UIKitFixesInit(void) {
             [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.ok".loc style:UIAlertActionStyleCancel handler:nil]];
             [alert addAction:[UIAlertAction actionWithTitle:@"lc.common.copy".loc style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
                 UIPasteboard.generalPasteboard.string = error.localizedDescription;
-                if (self.pidAvailableHandler) {
-                    self.pidAvailableHandler(nil, error);
-                }
             }]];
             [self presentViewController:alert animated:YES completion:nil];
+            void (^pidHandler)(NSNumber *, NSError *) = self.pidAvailableHandler;
+            if (pidHandler) {
+                pidHandler(nil, error);
+                self.pidAvailableHandler = nil;
+            }
         } else {
             self.pid = vc.pid;
             [self updateOriginalFrame];
-            if (self.pidAvailableHandler) {
-                self.pidAvailableHandler(@(self.pid), nil);
+            void (^pidHandler)(NSNumber *, NSError *) = self.pidAvailableHandler;
+            if (pidHandler) {
+                pidHandler(@(self.pid), nil);
+                self.pidAvailableHandler = nil;
             }
         }
     });
