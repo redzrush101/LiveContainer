@@ -8,12 +8,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct AppReplaceOption : Hashable {
-    var isReplace: Bool
-    var nameOfFolderToInstall: String
-    var appToReplace: LCAppModel?
-}
-
 struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @Binding var appDataFolderNames: [String]
     @Binding var tweakFolderNames: [String]
@@ -28,7 +22,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     // ipa installing stuff
     @State var installprogressVisible = false
     @State var installProgressPercentage : Float = 0.0
-    @State var installObserver : NSKeyValueObservation?
     
     @State var installOptions: [AppReplaceOption]
     @StateObject var installReplaceAlert = AlertHelper<AppReplaceOption>()
@@ -59,6 +52,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @EnvironmentObject private var sharedAppSortManager : LCAppSortManager
     
     @StateObject private var viewModel = AppListViewModel()
+    private let installationService: LCAppInstallationServicing
     
     @AppStorage(LCUserDefaultMultitaskModeKey, store: LCUtils.appGroupUserDefault) var multitaskMode: MultitaskMode = .virtualWindow
     @AppStorage(LCUserDefaultLaunchInMultitaskModeKey) var launchInMultitaskMode = false
@@ -78,11 +72,15 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         viewModel.filteredHiddenApps(from: sortedHiddenApps, isHiddenUnlocked: sharedModel.isHiddenAppUnlocked, searchContext: searchContext)
     }
     
-    init(appDataFolderNames: Binding<[String]>, tweakFolderNames: Binding<[String]>, searchContext: SearchContext) {
+    init(appDataFolderNames: Binding<[String]>,
+         tweakFolderNames: Binding<[String]>,
+         searchContext: SearchContext,
+         installationService: LCAppInstallationServicing = LCAppInstallationService()) {
         _installOptions = State(initialValue: [])
         _appDataFolderNames = appDataFolderNames
         _tweakFolderNames = tweakFolderNames
         _searchContext = ObservedObject(wrappedValue: searchContext)
+        self.installationService = installationService
     }
     
     var body: some View {
@@ -478,205 +476,117 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
 
     
-    func startInstallApp(_ fileUrl:URL) async {
+    func startInstallApp(_ fileUrl: URL) async {
+        await runInstallation(from: fileUrl, shouldDeleteSource: true)
+    }
+
+    @discardableResult
+    private func runInstallation(from sourceURL: URL, shouldDeleteSource: Bool) async -> Bool {
+        await MainActor.run {
+            installprogressVisible = true
+            installProgressPercentage = 0.0
+        }
+
         do {
-            self.installprogressVisible = true
-            LCLogger.info(category: .installation, "Starting installation from: \(fileUrl.lastPathComponent)")
-            try await installIpaFile(fileUrl)
-            try FileManager.default.removeItem(at: fileUrl)
+            let result = try await performInstallation(from: sourceURL, shouldDeleteSource: shouldDeleteSource)
+            await MainActor.run {
+                applyInstallationResult(result)
+                installprogressVisible = false
+            }
             LCLogger.info(category: .installation, "Installation completed successfully")
+            return true
+        } catch is CancellationError {
+            LCLogger.info(category: .installation, "Installation cancelled by user")
+            await MainActor.run {
+                installprogressVisible = false
+            }
+            return false
         } catch {
             LCLogger.error(category: .installation, "Installation failed: \(error.localizedDescription)")
-            errorInfo = error.localizedDescription
-            errorShow = true
-            self.installprogressVisible = false
+            await MainActor.run {
+                errorInfo = error.localizedDescription
+                errorShow = true
+                installprogressVisible = false
+            }
+            return false
         }
     }
-    
-    nonisolated func decompress(_ path: String, _ destination: String ,_ progress: Progress) async throws {
-        let result = extract(path, destination, progress)
-        if result != 0 {
-            LCLogger.error(category: .installation, "IPA extraction failed with code: \(result)")
-            throw LCAppError.extractionFailed(underlyingError: nil)
-        }
-    }
-    
-    func installIpaFile(_ url:URL) async throws {
-        let fm = FileManager()
-        
-        let installProgress = Progress.discreteProgress(totalUnitCount: 100)
-        self.installProgressPercentage = 0.0
-        self.installObserver = installProgress.observe(\.fractionCompleted) { p, v in
-            DispatchQueue.main.async {
-                self.installProgressPercentage = Float(p.fractionCompleted)
-            }
-        }
-        let decompressProgress = Progress.discreteProgress(totalUnitCount: 100)
-        installProgress.addChild(decompressProgress, withPendingUnitCount: 80)
-        let payloadPath = fm.temporaryDirectory.appendingPathComponent("Payload")
-        if fm.fileExists(atPath: payloadPath.path) {
-            try fm.removeItem(at: payloadPath)
-        }
-        
-        // decompress
-        try await decompress(url.path, fm.temporaryDirectory.path, decompressProgress)
 
-        let payloadContents = try fm.contentsOfDirectory(atPath: payloadPath.path)
-        var appBundleName : String? = nil
-        for fileName in payloadContents {
-            if fileName.hasSuffix(".app") {
-                appBundleName = fileName
-                break
-            }
-        }
-        guard let appBundleName = appBundleName else {
-            throw LCAppError.bundleNotFound
-        }
-
-        let appFolderPath = payloadPath.appendingPathComponent(appBundleName)
-        
-        guard let newAppInfo = LCAppInfo(bundlePath: appFolderPath.path) else {
-            throw LCAppError.infoPlistUnreadable
-        }
-
-        var appRelativePath = "\(newAppInfo.bundleIdentifier()!).app"
-        var outputFolder = LCPath.bundlePath.appendingPathComponent(appRelativePath)
-        var appToReplace : LCAppModel? = nil
-        // Folder exist! show alert for user to choose which bundle to replace
-        var sameBundleIdApp = sharedModel.apps.filter { app in
-            return app.appInfo.bundleIdentifier()! == newAppInfo.bundleIdentifier()
-        }
-        if sameBundleIdApp.count == 0 {
-            sameBundleIdApp = sharedModel.hiddenApps.filter { app in
-                return app.appInfo.bundleIdentifier()! == newAppInfo.bundleIdentifier()
-            }
-            
-            // we found a hidden app, we need to authenticate before proceeding
-            if sameBundleIdApp.count > 0 && !sharedModel.isHiddenAppUnlocked {
-                do {
-                    if !(try await LCUtils.authenticateUser()) {
-                        self.installprogressVisible = false
-                        return
-                    }
-                } catch {
-                    errorInfo = error.localizedDescription
-                    errorShow = true
-                    self.installprogressVisible = false
-                    return
+    private func performInstallation(from sourceURL: URL, shouldDeleteSource: Bool) async throws -> LCAppInstallationResult {
+        try await installationService.installIPA(
+            from: sourceURL,
+            shouldDeleteSourceAfterInstall: shouldDeleteSource,
+            duplicatesProvider: { bundleIdentifier in
+                try await duplicates(for: bundleIdentifier)
+            },
+            replacementDecider: { options in
+                await MainActor.run {
+                    installOptions = options
+                }
+                return await installReplaceAlert.open()
+            },
+            shouldSkipSigning: { option in
+                if LCUtils.appGroupUserDefault.bool(forKey: "LCDontSignApp") {
+                    return true
+                }
+                return option?.appToReplace?.uiDontSign ?? false
+            },
+            progressHandler: { progress in
+                Task { @MainActor in
+                    self.installProgressPercentage = Float(progress)
                 }
             }
-            
-        }
-        
-        if fm.fileExists(atPath: outputFolder.path) || sameBundleIdApp.count > 0 {
-            appRelativePath = "\(newAppInfo.bundleIdentifier()!)_\(Int(CFAbsoluteTimeGetCurrent())).app"
-            
-            self.installOptions = [AppReplaceOption(isReplace: false, nameOfFolderToInstall: appRelativePath)]
-            
-            for app in sameBundleIdApp {
-                self.installOptions.append(AppReplaceOption(isReplace: true, nameOfFolderToInstall: app.appInfo.relativeBundlePath, appToReplace: app))
-            }
+        )
+    }
 
-            guard let installOptionChosen = await installReplaceAlert.open() else {
-                // user cancelled
-                self.installprogressVisible = false
-                try fm.removeItem(at: payloadPath)
-                return
-            }
-            
-            if let appToReplace = installOptionChosen.appToReplace, appToReplace.uiIsShared {
-                outputFolder = LCPath.lcGroupBundlePath.appendingPathComponent(installOptionChosen.nameOfFolderToInstall)
+    private func duplicates(for bundleIdentifier: String) async throws -> [LCAppModel] {
+        var matches = sharedModel.apps.filter { $0.appInfo.bundleIdentifier() == bundleIdentifier }
+        var hiddenMatches = sharedModel.hiddenApps.filter { $0.appInfo.bundleIdentifier() == bundleIdentifier }
+
+        if !hiddenMatches.isEmpty && !sharedModel.isHiddenAppUnlocked {
+            let strictHidingEnabled = LCUtils.appGroupUserDefault.bool(forKey: LCUserDefaultStrictHidingKey)
+            if strictHidingEnabled {
+                hiddenMatches = []
             } else {
-                outputFolder = LCPath.bundlePath.appendingPathComponent(installOptionChosen.nameOfFolderToInstall)
-            }
-            appRelativePath = installOptionChosen.nameOfFolderToInstall
-            appToReplace = installOptionChosen.appToReplace
-            if installOptionChosen.isReplace {
-                try fm.removeItem(at: outputFolder)
+                do {
+                    if try await LCUtils.authenticateUser() {
+                        await MainActor.run {
+                            sharedModel.isHiddenAppUnlocked = true
+                        }
+                    } else {
+                        hiddenMatches = []
+                    }
+                } catch {
+                    throw error
+                }
             }
         }
-        // Move it!
-        try fm.moveItem(at: appFolderPath, to: outputFolder)
-        let finalNewApp = LCAppInfo(bundlePath: outputFolder.path)
-        finalNewApp?.relativeBundlePath = appRelativePath
-        
-        guard let finalNewApp else {
-            errorInfo = "lc.appList.appInfoInitError".loc
-            errorShow = true
-            return
-        }
-        
-        // patch and sign it
-        var signError : String? = nil
-        await withUnsafeContinuation({ c in
-            if appToReplace?.uiDontSign ?? false || LCUtils.appGroupUserDefault.bool(forKey: "LCDontSignApp") {
-                finalNewApp.dontSign = true
+
+        return matches + hiddenMatches
+    }
+
+    private func applyInstallationResult(_ result: LCAppInstallationResult) {
+        let finalNewApp = result.appInfo
+        let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
+
+        if let replacedApp = result.replacedApp {
+            if replacedApp.uiIsHidden {
+                sharedModel.hiddenApps.removeAll { $0 == replacedApp }
+                sharedModel.hiddenApps.append(newAppModel)
+            } else {
+                sharedModel.apps.removeAll { $0 == replacedApp }
+                sharedModel.apps.append(newAppModel)
             }
-            finalNewApp.patchExecAndSignIfNeed(completionHandler: { success, error in
-                signError = error
-                c.resume()
-            }, progressHandler: { signProgress in
-                installProgress.addChild(signProgress!, withPendingUnitCount: 20)
-            }, forceSign: false)
-        })
-        
-        // we leave it unsigned even if signing failed
-        if let signError {
-            let appError = LCAppError.signingError(from: signError)
-            errorInfo = appError.localizedDescription
-            if let recovery = appError.recoverySuggestion {
+        } else {
+            sharedModel.apps.append(newAppModel)
+        }
+
+        if let signingError = result.signingError {
+            errorInfo = signingError.localizedDescription
+            if let recovery = signingError.recoverySuggestion {
                 errorInfo += "\n\n" + recovery
             }
             errorShow = true
-        }
-        
-        if let appToReplace {
-            // copy previous configration to new app
-            finalNewApp.autoSaveDisabled = true
-            finalNewApp.isLocked = appToReplace.appInfo.isLocked
-            finalNewApp.isHidden = appToReplace.appInfo.isHidden
-            finalNewApp.isJITNeeded = appToReplace.appInfo.isJITNeeded
-            finalNewApp.isShared = appToReplace.appInfo.isShared
-            finalNewApp.spoofSDKVersion = appToReplace.appInfo.spoofSDKVersion
-            finalNewApp.doSymlinkInbox = appToReplace.appInfo.doSymlinkInbox
-            finalNewApp.containerInfo = appToReplace.appInfo.containerInfo
-            finalNewApp.tweakFolder = appToReplace.appInfo.tweakFolder
-            finalNewApp.selectedLanguage = appToReplace.appInfo.selectedLanguage
-            finalNewApp.dataUUID = appToReplace.appInfo.dataUUID
-            finalNewApp.orientationLock = appToReplace.appInfo.orientationLock
-            finalNewApp.dontInjectTweakLoader = appToReplace.appInfo.dontInjectTweakLoader
-            finalNewApp.hideLiveContainer = appToReplace.appInfo.hideLiveContainer
-            finalNewApp.dontLoadTweakLoader = appToReplace.appInfo.dontLoadTweakLoader
-            finalNewApp.doUseLCBundleId = appToReplace.appInfo.doUseLCBundleId
-            finalNewApp.fixFilePickerNew = appToReplace.appInfo.fixFilePickerNew
-            finalNewApp.fixLocalNotification = appToReplace.appInfo.fixLocalNotification
-            finalNewApp.lastLaunched = appToReplace.appInfo.lastLaunched
-            finalNewApp.autoSaveDisabled = false
-            finalNewApp.save()
-        } else {
-            // enable SDK version spoof by defalut
-            finalNewApp.spoofSDKVersion = true
-        }
-        finalNewApp.installationDate = Date.now
-        
-        DispatchQueue.main.async {
-            if let appToReplace {
-                let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
-                
-                if appToReplace.uiIsHidden {
-                    sharedModel.hiddenApps.removeAll { $0 == appToReplace }
-                    sharedModel.hiddenApps.append(newAppModel)
-                } else {
-                    sharedModel.apps.removeAll { $0 == appToReplace }
-                    sharedModel.apps.append(newAppModel)
-                }
-
-            } else {
-                let newAppModel = LCAppModel(appInfo: finalNewApp, delegate: self)
-                sharedModel.apps.append(newAppModel)
-            }
-
-            self.installprogressVisible = false
         }
     }
     
@@ -705,11 +615,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             return
         }
         
-        self.installprogressVisible = true
-        defer {
-            self.installprogressVisible = false
-        }
-        
         if installUrl.isFileURL {
             // install from local, we directly call local install method
             if !installUrl.lastPathComponent.hasSuffix(".ipa") && !installUrl.lastPathComponent.hasSuffix(".tipa") {
@@ -729,28 +634,25 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 installUrl.stopAccessingSecurityScopedResource()
             }
             
-            do {
-                try await installIpaFile(installUrl)
-            } catch {
-                errorInfo = error.localizedDescription
-                errorShow = true
-            }
-            
-            do {
-                // delete ipa if it's in inbox
-                var shouldDelete = false
-                if let documentsDirectory = fm.urls(for: .documentDirectory, in: .userDomainMask).first {
-                    let inboxURL = documentsDirectory.appendingPathComponent("Inbox")
-                    let fileURL = inboxURL.appendingPathComponent(installUrl.lastPathComponent)
-                    
-                    shouldDelete = fm.fileExists(atPath: fileURL.path)
+            let success = await runInstallation(from: installUrl, shouldDeleteSource: false)
+
+            if success {
+                do {
+                    // delete ipa if it's in inbox
+                    var shouldDelete = false
+                    if let documentsDirectory = fm.urls(for: .documentDirectory, in: .userDomainMask).first {
+                        let inboxURL = documentsDirectory.appendingPathComponent("Inbox")
+                        let fileURL = inboxURL.appendingPathComponent(installUrl.lastPathComponent)
+
+                        shouldDelete = fm.fileExists(atPath: fileURL.path)
+                    }
+                    if shouldDelete {
+                        try fm.removeItem(at: installUrl)
+                    }
+                } catch {
+                    errorInfo = error.localizedDescription
+                    errorShow = true
                 }
-                if shouldDelete {
-                    try fm.removeItem(at: installUrl)
-                }
-            } catch {
-                errorInfo = error.localizedDescription
-                errorShow = true
             }
             return
         }
@@ -766,11 +668,12 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             if downloadHelper.cancelled {
                 return
             }
-            try await installIpaFile(destinationURL)
-            try fileManager.removeItem(at: destinationURL)
+            _ = await runInstallation(from: destinationURL, shouldDeleteSource: true)
         } catch {
-            errorInfo = error.localizedDescription
-            errorShow = true
+            await MainActor.run {
+                errorInfo = error.localizedDescription
+                errorShow = true
+            }
         }
         
     }
