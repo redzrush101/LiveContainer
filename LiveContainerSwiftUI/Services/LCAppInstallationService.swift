@@ -19,7 +19,6 @@ struct LCAppInstallationResult {
     let signingError: LCAppError?
 }
 
-@MainActor
 protocol LCAppInstallationServicing {
     typealias DuplicateAppsProvider = @Sendable (_ bundleIdentifier: String) async throws -> [LCAppModel]
     typealias ReplaceDecisionHandler = @Sendable (_ options: [AppReplaceOption]) async -> AppReplaceOption?
@@ -34,7 +33,6 @@ protocol LCAppInstallationServicing {
                     progressHandler: @escaping ProgressHandler) async throws -> LCAppInstallationResult
 }
 
-@MainActor
 final class LCAppInstallationService: LCAppInstallationServicing {
     private let fileManager: FileManager
 
@@ -52,8 +50,7 @@ final class LCAppInstallationService: LCAppInstallationServicing {
         LCLogger.info(category: .installation, "Starting installation from: \(url.lastPathComponent)")
 
         let installProgress = Progress.discreteProgress(totalUnitCount: 100)
-        let progressObservation = installProgress.observe(\.
-fractionCompleted) { progress, _ in
+        let progressObservation = installProgress.observe(\.fractionCompleted, options: [.initial, .new]) { progress, _ in
             progressHandler(progress.fractionCompleted)
         }
 

@@ -539,8 +539,9 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         )
     }
 
+    @MainActor
     private func duplicates(for bundleIdentifier: String) async throws -> [LCAppModel] {
-        var matches = sharedModel.apps.filter { $0.appInfo.bundleIdentifier() == bundleIdentifier }
+        let matches = sharedModel.apps.filter { $0.appInfo.bundleIdentifier() == bundleIdentifier }
         var hiddenMatches = sharedModel.hiddenApps.filter { $0.appInfo.bundleIdentifier() == bundleIdentifier }
 
         if !hiddenMatches.isEmpty && !sharedModel.isHiddenAppUnlocked {
@@ -550,9 +551,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             } else {
                 do {
                     if try await LCUtils.authenticateUser() {
-                        await MainActor.run {
-                            sharedModel.isHiddenAppUnlocked = true
-                        }
+                        sharedModel.isHiddenAppUnlocked = true
                     } else {
                         hiddenMatches = []
                     }
@@ -613,6 +612,16 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             errorInfo = LCAppError.invalidURL.localizedDescription
             errorShow = true
             return
+        }
+
+        await MainActor.run {
+            installprogressVisible = true
+            installProgressPercentage = 0.0
+        }
+        defer {
+            Task { @MainActor in
+                installprogressVisible = false
+            }
         }
         
         if installUrl.isFileURL {
