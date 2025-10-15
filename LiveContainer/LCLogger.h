@@ -54,6 +54,9 @@ typedef NS_ENUM(NSInteger, LCLogCategory) {
 /// Clear all logs
 + (void)clearLogs;
 
+/// Non-variadic wrapper for Swift (logs a single string message)
++ (void)logLevel:(LCLogLevel)level category:(LCLogCategory)category string:(NSString *)message;
+
 /// String representation of category
 + (NSString *)stringForCategory:(LCLogCategory)category;
 

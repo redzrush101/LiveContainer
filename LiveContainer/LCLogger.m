@@ -402,4 +402,8 @@ static NSInteger const kMaxArchivedLogs = 3;
     }
 }
 
++ (void)logLevel:(LCLogLevel)level category:(LCLogCategory)category string:(NSString *)message {
+    [self logWithLevel:level category:category message:@"%@", message];
+}
+
 @end

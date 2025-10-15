@@ -9,18 +9,18 @@ import Foundation
 
 extension LCLogger {
     static func debug(category: LCLogCategory, _ message: String) {
-        LCLogger.log(withLevel: .debug, category: category, message: "%@", message)
+        LCLogger.logLevel(.debug, category: category, string: message)
     }
     
     static func info(category: LCLogCategory, _ message: String) {
-        LCLogger.log(withLevel: .info, category: category, message: "%@", message)
+        LCLogger.logLevel(.info, category: category, string: message)
     }
     
     static func warning(category: LCLogCategory, _ message: String) {
-        LCLogger.log(withLevel: .warning, category: category, message: "%@", message)
+        LCLogger.logLevel(.warning, category: category, string: message)
     }
     
     static func error(category: LCLogCategory, _ message: String) {
-        LCLogger.log(withLevel: .error, category: category, message: "%@", message)
+        LCLogger.logLevel(.error, category: category, string: message)
     }
 }
